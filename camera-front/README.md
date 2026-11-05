@@ -8,3 +8,4 @@ App para visualizar, ordenar y proteger las grabaciones de la cámara trasera y 
 - **Dashcam USB (Traffic Safety Guard):** Se comunica con la dashcam USB conectada como disco `udisk` utilizando comandos binarios a través del archivo `HWC` y la librería nativa JNI `libuvccamera-lib.so`. Permite listar, descargar e importar videos al almacenamiento interno sin depender de apps externas chinas.
 - **Ubicación GPS sincronizada:** Vincula automáticamente cada video con el registro GPS del launcher (`/sdcard/K4811/gps/AAAAMMDD.csv`), mostrando la calle o enlace en Google Maps del lugar donde se grabó.
 - **Protección de grabaciones:** Guarda copias permanentes en `/sdcard/K4811/Protegidas/` para evitar que la radio las sobreescriba en bucle.
+

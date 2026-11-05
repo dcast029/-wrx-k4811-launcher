@@ -7,3 +7,4 @@ Servidor HTTP liviano embebido para Android que permite la comunicación, depura
 - **Captura de pantalla en tiempo real:** Endpoint `/screenshot` para inspeccionar la pantalla de la radio remotamente desde el navegador del PC.
 - **Explorador de archivos:** Endpoint `/ls` y `/get` para descargar logs de CAN, registros GPS y videos grabados.
 - **Acceso protegido:** Requiere una clave de seguridad configurable (`?k=...`) para autorizar cualquier petición.
+
