@@ -29,6 +29,21 @@ public final class WrxPrefs {
     public static final String FUEL_LAST_LITERS = "fuel_last_liters";
     public static final String FUEL_LAST_KM_L = "fuel_last_km_l";
     public static final String DOCK = "dock";
+    public static final String CAR_IMAGE_MODE = "car_image_mode";
+
+    public static final int CAR_MODE_FAMILY_DYNAMIC = 0; // Familia WRX Dinámica (tranquilo detenido / rápido en marcha)
+    public static final int CAR_MODE_ORIGINAL_3D = 1;     // Subaru WRX 3D Original
+    public static final int CAR_MODE_FAMILY_STOPPED = 2;  // Familia tranquila fija
+    public static final int CAR_MODE_FAMILY_MOVING = 3;   // Familia rápida fija
+    public static final int CAR_MODE_CUSTOM_SD = 4;       // /sdcard/K4811/wrx_auto.png
+
+    public static int getCarImageMode(Context c) {
+        return get(c).getInt(CAR_IMAGE_MODE, CAR_MODE_FAMILY_DYNAMIC);
+    }
+
+    public static void setCarImageMode(Context c, int mode) {
+        get(c).edit().putInt(CAR_IMAGE_MODE, mode).apply();
+    }
 
     public static SharedPreferences get(Context c) {
         return c.getApplicationContext().getSharedPreferences(FILE, Context.MODE_PRIVATE);

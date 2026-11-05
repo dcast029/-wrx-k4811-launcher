@@ -86,6 +86,9 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     // Centro
     private ArcGauge speedGauge;
     private TextView speedText, speedUnit;
+    private ImageView carImage;
+    private int currentCarResId = -1;
+    private String currentCarCustomPath = null;
     // Derecha
     private TextView npSource, npTitle, npSub, npLine3, npArtText;
     private ImageView npArt;
@@ -457,14 +460,12 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         glow.setBackground(g);
         root.addView(glow, at(338, 548, 560, 64));
 
-        ImageView car = new ImageView(this);
-        car.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        car.setAdjustViewBounds(true);
-        Bitmap custom = loadCustomCar();
-        if (custom != null) car.setImageBitmap(custom);
-        else car.setImageResource(com.k4811.launcher.R.drawable.wrx_car);
-        root.addView(car, at(378, 356, 480, 236));
-        car.setOnClickListener(v -> showCarMenu());
+        carImage = new ImageView(this);
+        carImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        carImage.setAdjustViewBounds(true);
+        updateCarImage(true);
+        root.addView(carImage, at(378, 356, 480, 236));
+        carImage.setOnClickListener(v -> showCarMenu());
 
         carStatusBadge = t.label(this, "", 12.5f, WrxTheme.bodyBold(), WrxTheme.RED);
         carStatusBadge.setGravity(Gravity.CENTER);
@@ -497,14 +498,60 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         b.setOnClickListener(v -> action.run());
     }
 
-    /** Foto propia opcional: K4811/wrx_auto.png (PNG con fondo transparente). */
-    private Bitmap loadCustomCar() {
-        File f = new File(Environment.getExternalStorageDirectory(), "K4811/wrx_auto.png");
-        if (!f.isFile()) return null;
-        try {
-            return BitmapFactory.decodeFile(f.getPath());
-        } catch (Throwable e) {
-            return null;
+    /** Actualiza la imagen del auto (estática o según velocidad en tiempo real). */
+    private void updateCarImage(boolean force) {
+        if (carImage == null) return;
+        int mode = WrxPrefs.getCarImageMode(this);
+        boolean isMoving = !Float.isNaN(CarState.speedKmh) && CarState.speedKmh >= 5.0f;
+
+        if (mode == WrxPrefs.CAR_MODE_CUSTOM_SD) {
+            File custom = new File(Environment.getExternalStorageDirectory(),
+                isMoving ? "K4811/wrx_auto_moving.png" : "K4811/wrx_auto.png");
+            if (!custom.isFile()) {
+                custom = new File(Environment.getExternalStorageDirectory(), "K4811/wrx_auto.png");
+            }
+            if (custom.isFile()) {
+                String p = custom.getAbsolutePath();
+                if (force || !p.equals(currentCarCustomPath)) {
+                    currentCarCustomPath = p;
+                    currentCarResId = -1;
+                    try {
+                        Bitmap bmp = BitmapFactory.decodeFile(p);
+                        if (bmp != null) {
+                            carImage.setImageBitmap(bmp);
+                            return;
+                        }
+                    } catch (Throwable ignored) {}
+                } else {
+                    return;
+                }
+            }
+            // Fallback si no existe archivo en SD: usar familia dinámica
+            mode = WrxPrefs.CAR_MODE_FAMILY_DYNAMIC;
+        }
+
+        currentCarCustomPath = null;
+        int targetRes;
+        switch (mode) {
+            case WrxPrefs.CAR_MODE_ORIGINAL_3D:
+                targetRes = com.k4811.launcher.R.drawable.wrx_car;
+                break;
+            case WrxPrefs.CAR_MODE_FAMILY_STOPPED:
+                targetRes = com.k4811.launcher.R.drawable.wrx_family_stopped;
+                break;
+            case WrxPrefs.CAR_MODE_FAMILY_MOVING:
+                targetRes = com.k4811.launcher.R.drawable.wrx_family_moving;
+                break;
+            case WrxPrefs.CAR_MODE_FAMILY_DYNAMIC:
+            default:
+                targetRes = isMoving ? com.k4811.launcher.R.drawable.wrx_family_moving
+                                     : com.k4811.launcher.R.drawable.wrx_family_stopped;
+                break;
+        }
+
+        if (force || targetRes != currentCarResId) {
+            currentCarResId = targetRes;
+            carImage.setImageResource(targetRes);
         }
     }
 
@@ -808,6 +855,7 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
             }
             speedGauge.setValue(s, true);
         }
+        updateCarImage(false);
         // Batería
         float v = CarState.volts;
         if (Float.isNaN(v)) {
@@ -959,20 +1007,53 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
 
     private void showCarMenu() {
         boolean sport = WrxPrefs.isSportMode(this);
+        String modeDesc;
+        switch (WrxPrefs.getCarImageMode(this)) {
+            case WrxPrefs.CAR_MODE_ORIGINAL_3D: modeDesc = "3D Original"; break;
+            case WrxPrefs.CAR_MODE_FAMILY_STOPPED: modeDesc = "Familia Tranquila"; break;
+            case WrxPrefs.CAR_MODE_FAMILY_MOVING: modeDesc = "Familia a Fondo"; break;
+            case WrxPrefs.CAR_MODE_CUSTOM_SD: modeDesc = "SD Card"; break;
+            default: modeDesc = "Familia Dinámica"; break;
+        }
         String[] opts = {
+            "🖼️ Cambiar imagen del auto (" + modeDesc + ")",
             "📋 REGISTRO WRX (Bencina, Mantención, Odómetro)",
             "🎛️ Centro de Audio & Ecualización",
             "🏁 Modo Pista WRX (0-100 / 0-60)" + (sport ? " (Activo)" : " (Apagado)"),
-            "🛡️ Proteger último video (Cámara Trasera)",
-            "🖼️ Foto del auto: guardar en /sdcard/K4811/wrx_auto.png"
+            "🛡️ Proteger último video (Cámara Trasera)"
         };
         dialog = WrxDialog.list(this, t, "Subaru WRX", opts, i -> {
-            if (i == 0) startActivity(new Intent(this, WrxRegistryActivity.class));
-            else if (i == 1) startActivity(new Intent(this, WrxSoundTestActivity.class));
-            else if (i == 2) showSportMenu();
-            else if (i == 3) protectVideo();
-            else if (i == 4) {
-                Toast.makeText(this, "Guarda tu imagen PNG transparente en:\n/sdcard/K4811/wrx_auto.png", Toast.LENGTH_LONG).show();
+            if (i == 0) showCarImageChooser();
+            else if (i == 1) startActivity(new Intent(this, WrxRegistryActivity.class));
+            else if (i == 2) startActivity(new Intent(this, WrxSoundTestActivity.class));
+            else if (i == 3) showSportMenu();
+            else if (i == 4) protectVideo();
+        });
+    }
+
+    private void showCarImageChooser() {
+        int current = WrxPrefs.getCarImageMode(this);
+        String[] titles = {
+            "👨‍👩‍👧‍👦 Familia WRX Dinámica (Tranquilo detenido / Rápido en marcha)",
+            "🚘 Subaru WRX 3D Original",
+            "🏖️ Familia WRX Tranquila (Siempre fija)",
+            "🏎️ Familia WRX a Fondo (Siempre fija)",
+            "📁 Imagen propia (/sdcard/K4811/wrx_auto.png)"
+        };
+        String[] items = new String[titles.length];
+        for (int i = 0; i < titles.length; i++) {
+            items[i] = (i == current ? "✓ " : "   ") + titles[i];
+        }
+        dialog = WrxDialog.list(this, t, "Imagen del Auto", items, i -> {
+            WrxPrefs.setCarImageMode(this, i);
+            updateCarImage(true);
+            if (i == WrxPrefs.CAR_MODE_CUSTOM_SD) {
+                File f = new File(Environment.getExternalStorageDirectory(), "K4811/wrx_auto.png");
+                if (!f.isFile()) {
+                    Toast.makeText(this, "Para usar tu propia foto, guarda tu PNG transparente en:\n/sdcard/K4811/wrx_auto.png", Toast.LENGTH_LONG).show();
+                }
+            } else if (i == WrxPrefs.CAR_MODE_FAMILY_DYNAMIC) {
+                Toast.makeText(this, "¡Modo Dinámico activo! Cambiará solo a la versión a fondo al pasar 5 km/h", Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -88,7 +88,7 @@ public class WrxSettingsActivity extends Activity {
                 WrxPrefs.get(this).edit().remove(WrxPrefs.DOCK).apply();
                 render();
             }));
-        action("Foto del auto", "Pon un PNG transparente en K4811/wrx_auto.png para usar otra foto", null);
+        action("Foto del auto en pantalla", describeCarMode(), this::showCarImageChooser);
 
         section("MODO PISTA Y CÁMARAS");
         toggle("Modo Pista WRX (0 a 100 km/h)", "Mide aceleración automáticamente por GPS al detenerte",
@@ -186,6 +186,43 @@ public class WrxSettingsActivity extends Activity {
             r.addView(t.label(this, "›", 30, WrxTheme.body(), t.dim));
             r.setOnClickListener(v -> onTap.run());
         }
+    }
+
+    private String describeCarMode() {
+        switch (WrxPrefs.getCarImageMode(this)) {
+            case WrxPrefs.CAR_MODE_ORIGINAL_3D: return "Subaru WRX 3D Original";
+            case WrxPrefs.CAR_MODE_FAMILY_STOPPED: return "Familia WRX Tranquila (Fija)";
+            case WrxPrefs.CAR_MODE_FAMILY_MOVING: return "Familia WRX a Fondo (Fija)";
+            case WrxPrefs.CAR_MODE_CUSTOM_SD: return "Archivo propio /sdcard/K4811/wrx_auto.png";
+            case WrxPrefs.CAR_MODE_FAMILY_DYNAMIC:
+            default:
+                return "Familia WRX Dinámica (Tranquilo detenido / Rápido en marcha)";
+        }
+    }
+
+    private void showCarImageChooser() {
+        int current = WrxPrefs.getCarImageMode(this);
+        String[] titles = {
+            "👨‍👩‍👧‍👦 Familia WRX Dinámica (Tranquilo detenido / Rápido en marcha)",
+            "🚘 Subaru WRX 3D Original",
+            "🏖️ Familia WRX Tranquila (Siempre fija)",
+            "🏎️ Familia WRX a Fondo (Siempre fija)",
+            "📁 Imagen propia (/sdcard/K4811/wrx_auto.png)"
+        };
+        String[] items = new String[titles.length];
+        for (int i = 0; i < titles.length; i++) {
+            items[i] = (i == current ? "✓ " : "   ") + titles[i];
+        }
+        dialog = WrxDialog.list(this, t, "Imagen del Auto", items, i -> {
+            WrxPrefs.setCarImageMode(this, i);
+            render();
+            if (i == WrxPrefs.CAR_MODE_CUSTOM_SD) {
+                java.io.File f = new java.io.File(android.os.Environment.getExternalStorageDirectory(), "K4811/wrx_auto.png");
+                if (!f.isFile()) {
+                    android.widget.Toast.makeText(this, "Para usar tu propia foto, guarda tu PNG transparente en:\n/sdcard/K4811/wrx_auto.png", android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
     }
 
     private void toggle(String title, String sub, String key, boolean def) {
