@@ -364,16 +364,17 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         card.setBackground(t.card(this, 22));
         WrxTheme.pad(card, 18, 16, 18, 14);
         root.addView(card, at(28, 234, 330, 238));
-        card.setOnClickListener(v -> startActivity(new Intent(this, MaintenanceActivity.class)));
+        card.setOnClickListener(v -> startActivity(new Intent(this, WrxRegistryActivity.class)));
         LinearLayout head = new LinearLayout(this);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(new Glyph(this).set(Glyph.Kind.WRENCH).color(t.gold), new LinearLayout.LayoutParams(px(18), px(18)));
-        TextView ht = t.label(this, "MANTENCIÓN", 12, WrxTheme.bodyBold(), t.gold);
+        head.addView(new Glyph(this).set(Glyph.Kind.TRIP).color(t.gold), new LinearLayout.LayoutParams(px(18), px(18)));
+        TextView ht = t.label(this, "REGISTRO & BENCINA", 12, WrxTheme.bodyBold(), t.gold);
         WrxTheme.spacing(ht, 0.16f);
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(0, -2, 1);
         hlp.leftMargin = px(8);
         head.addView(ht, hlp);
-        head.addView(new Glyph(this).set(Glyph.Kind.PLUS).color(t.muted), new LinearLayout.LayoutParams(px(20), px(20)));
+        TextView openLbl = t.label(this, "ABRIR ›", 11.5f, WrxTheme.bodyBold(), t.gold);
+        head.addView(openLbl);
         card.addView(head);
         maintList = new LinearLayout(this);
         maintList.setOrientation(LinearLayout.VERTICAL);
@@ -451,6 +452,29 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         else car.setImageResource(com.k4811.launcher.R.drawable.wrx_car);
         root.addView(car, at(378, 356, 480, 236));
         car.setOnClickListener(v -> showCarMenu());
+
+        // Barra de Accesos Rápidos directa en Inicio
+        LinearLayout quickBar = new LinearLayout(this);
+        quickBar.setOrientation(LinearLayout.HORIZONTAL);
+        quickBar.setGravity(Gravity.CENTER);
+        quickBar.setBackground(t.cardOf(this, t.panel, 14, true));
+        WrxTheme.pad(quickBar, 6, 3, 6, 3);
+        addQuickChip(quickBar, "📋 REGISTRO", () -> startActivity(new Intent(this, WrxRegistryActivity.class)));
+        addQuickChip(quickBar, "⛽ BENCINA", this::showFuelDialog);
+        addQuickChip(quickBar, "🎛️ AUDIO", () -> startActivity(new Intent(this, WrxSoundTestActivity.class)));
+        addQuickChip(quickBar, "🏁 PISTA", this::showSportMenu);
+        root.addView(quickBar, at(378, 554, 480, 44));
+    }
+
+    private void addQuickChip(LinearLayout parent, String label, Runnable action) {
+        TextView b = t.label(this, label, 12.5f, WrxTheme.bodyBold(), t.text);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(t.cardOf(this, t.panel2, 10, true));
+        WrxTheme.pad(b, 8, 0, 8, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
+        if (parent.getChildCount() > 0) lp.leftMargin = px(6);
+        parent.addView(b, lp);
+        b.setOnClickListener(v -> action.run());
     }
 
     /** Foto propia opcional: K4811/wrx_auto.png (PNG con fondo transparente). */
@@ -592,12 +616,12 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         View trip = tile(888, Glyph.Kind.TRIP);
         tripValue = (TextView) ((LinearLayout) ((LinearLayout) trip).getChildAt(1)).getChildAt(0);
         tripSub = (TextView) ((LinearLayout) ((LinearLayout) trip).getChildAt(1)).getChildAt(1);
-        trip.setOnClickListener(v -> showTrip());
+        trip.setOnClickListener(v -> startActivity(new Intent(this, WrxRegistryActivity.class)));
         View odo = tile(888 + 188, Glyph.Kind.WRENCH);
         ((Glyph) ((LinearLayout) ((LinearLayout) odo).getChildAt(0)).getChildAt(0)).set(Glyph.Kind.CAN);
         odoValue = (TextView) ((LinearLayout) ((LinearLayout) odo).getChildAt(1)).getChildAt(0);
         odoSub = (TextView) ((LinearLayout) ((LinearLayout) odo).getChildAt(1)).getChildAt(1);
-        odo.setOnClickListener(v -> askOdometer());
+        odo.setOnClickListener(v -> startActivity(new Intent(this, WrxRegistryActivity.class)));
     }
 
     private FrameLayout transportButton(LinearLayout parent, Glyph.Kind kind, boolean big) {
@@ -815,49 +839,65 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
 
     private void renderMaintenance() {
         maintList.removeAllViews();
+
+        // 1. Fila Bencina rápida
+        float avgKmL = FuelTracker.getAverageKmL(this);
+        FuelTracker.FillUp lastFuel = FuelTracker.getLastFillUp(this);
+        LinearLayout fuelRow = new LinearLayout(this);
+        fuelRow.setGravity(Gravity.CENTER_VERTICAL);
+        fuelRow.addView(t.label(this, "⛽", 14, WrxTheme.bodyBold(), t.gold));
+        String sFuel = !Float.isNaN(avgKmL) ? String.format(ES, " %.1f km/L prom.", avgKmL)
+            : (lastFuel != null && !Float.isNaN(lastFuel.kmL) ? String.format(ES, " %.1f km/L últ.", lastFuel.kmL)
+            : (lastFuel != null ? String.format(ES, " %.1f L cargados", lastFuel.liters) : " Cargar bencina"));
+        TextView fuelTxt = t.label(this, sFuel, 13.5f, WrxTheme.bodyBold(), t.text);
+        fuelTxt.setSingleLine(true);
+        LinearLayout.LayoutParams ftlp = new LinearLayout.LayoutParams(0, -2, 1);
+        ftlp.leftMargin = px(6);
+        fuelRow.addView(fuelTxt, ftlp);
+        TextView refuelBtn = t.label(this, "+ CARGAR", 11, WrxTheme.bodyBold(), t.gold);
+        refuelBtn.setBackground(t.cardOf(this, t.panel2, 8, true));
+        WrxTheme.pad(refuelBtn, 8, 4, 8, 4);
+        fuelRow.addView(refuelBtn);
+        fuelRow.setOnClickListener(v -> showFuelDialog());
+        maintList.addView(fuelRow);
+
+        // 2. Fila Modo Pista (0-100)
+        float b100 = WrxPrefs.getBest0to100(this);
+        LinearLayout sportRow = new LinearLayout(this);
+        sportRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams splp = new LinearLayout.LayoutParams(-1, -2);
+        splp.topMargin = px(8);
+        sportRow.setLayoutParams(splp);
+        sportRow.addView(t.label(this, "🏁", 14, WrxTheme.bodyBold(), t.gold));
+        String sSport = b100 > 0 ? String.format(ES, " 0-100: %.2f s", b100) : " Modo Pista (0-100)";
+        TextView sportTxt = t.label(this, sSport, 13.5f, WrxTheme.bodyBold(), t.text);
+        sportTxt.setSingleLine(true);
+        LinearLayout.LayoutParams stlp = new LinearLayout.LayoutParams(0, -2, 1);
+        stlp.leftMargin = px(6);
+        sportRow.addView(sportTxt, stlp);
+        TextView sportBtn = t.label(this, "VER ›", 11, WrxTheme.bodyBold(), t.muted);
+        sportRow.addView(sportBtn);
+        sportRow.setOnClickListener(v -> showSportMenu());
+        maintList.addView(sportRow);
+
+        // 3. Fila Mantención
         List<Maintenance.Item> list = Maintenance.pending(this);
-        if (list.isEmpty()) {
-            TextView e = t.label(this, "Sin pendientes", 17, WrxTheme.bodyBold(), t.text);
-            maintList.addView(e);
-            TextView e2 = t.label(this, "Toca para agregar la revisión técnica, el permiso, el aceite…",
-                13, WrxTheme.body(), t.muted);
-            e2.setSingleLine(false);
-            e2.setMaxLines(3);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-            lp.topMargin = px(6);
-            maintList.addView(e2, lp);
-            return;
-        }
-        int shown = Math.min(3, list.size());
-        for (int i = 0; i < shown; i++) {
-            Maintenance.Item it = list.get(i);
-            LinearLayout row = new LinearLayout(this);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            View dot = new View(this);
-            GradientDrawable d = new GradientDrawable();
-            d.setShape(GradientDrawable.OVAL);
-            int u = it.urgency();
-            d.setColor(u == 2 ? WrxTheme.RED : u == 1 ? WrxTheme.WARN : WrxTheme.OK);
-            dot.setBackground(d);
-            row.addView(dot, new LinearLayout.LayoutParams(px(9), px(9)));
-            LinearLayout texts = new LinearLayout(this);
-            texts.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0, -2, 1);
-            tlp.leftMargin = px(11);
-            row.addView(texts, tlp);
-            texts.addView(t.label(this, it.title, 15.5f, WrxTheme.bodyBold(), t.text));
-            texts.addView(t.label(this, it.status(), 12.5f, WrxTheme.body(),
-                u == 2 ? WrxTheme.RED : u == 1 ? (t.night ? WrxTheme.WARN : 0xFFB0781A) : t.muted));
-            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, -2);
-            if (i > 0) rlp.topMargin = px(11);
-            maintList.addView(row, rlp);
-        }
-        if (list.size() > shown) {
-            TextView more = t.label(this, "+ " + (list.size() - shown) + " más", 12.5f, WrxTheme.bodyMedium(), t.muted);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-            lp.topMargin = px(8);
-            maintList.addView(more, lp);
-        }
+        LinearLayout maintRow = new LinearLayout(this);
+        maintRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(-1, -2);
+        mlp.topMargin = px(8);
+        maintRow.setLayoutParams(mlp);
+        maintRow.addView(t.label(this, "🔧", 14, WrxTheme.bodyBold(), t.gold));
+        String sMaint = list.isEmpty() ? " Mantenciones al día" : " " + list.get(0).title + " (" + list.get(0).status() + ")";
+        TextView maintTxt = t.label(this, sMaint, 13.5f, WrxTheme.bodyBold(), list.isEmpty() ? t.muted : t.gold);
+        maintTxt.setSingleLine(true);
+        LinearLayout.LayoutParams mtlp = new LinearLayout.LayoutParams(0, -2, 1);
+        mtlp.leftMargin = px(6);
+        maintRow.addView(maintTxt, mtlp);
+        TextView maintBtn = t.label(this, "VER ›", 11, WrxTheme.bodyBold(), t.muted);
+        maintRow.addView(maintBtn);
+        maintRow.setOnClickListener(v -> startActivity(new Intent(this, WrxRegistryActivity.class)));
+        maintList.addView(maintRow);
     }
 
     private void showCarMenu() {

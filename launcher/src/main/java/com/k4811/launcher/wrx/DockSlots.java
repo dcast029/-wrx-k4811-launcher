@@ -68,6 +68,23 @@ public final class DockSlots {
         List<String> out = new ArrayList<>();
         for (String s : raw.split(",")) if (!s.trim().isEmpty()) out.add(s.trim());
         if (out.isEmpty()) out.addAll(Arrays.asList(DEFAULT.split(",")));
+
+        // Asegurar que REGISTRO y AUDIO siempre aparezcan en el dock del inicio
+        if (!out.contains("registry")) {
+            int pos = Math.min(3, out.size());
+            out.add(pos, "registry");
+        }
+        if (!out.contains("audio")) {
+            int pos = Math.min(4, out.size());
+            out.add(pos, "audio");
+        }
+        while (out.size() > MAX) {
+            if (out.contains("youtube")) out.remove("youtube");
+            else if (out.contains("maps")) out.remove("maps");
+            else if (out.contains("aux")) out.remove("aux");
+            else if (out.contains("video")) out.remove("video");
+            else out.remove(out.size() - 2);
+        }
         return out;
     }
 
