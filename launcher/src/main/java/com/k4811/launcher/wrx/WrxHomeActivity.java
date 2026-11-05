@@ -75,8 +75,8 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     private FrameLayout root;
 
     // Arriba
-    private View chipBrake;
-    private TextView chipLightsText, chipVoltText, chipTempText;
+    private View chipBrake, chipReverse;
+    private TextView chipLightsText, chipVoltText, chipTempText, carStatusBadge;
     private Glyph btGlyph;
     // Izquierda
     private TextView clock, dayView, dateView;
@@ -295,6 +295,9 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         chipBrake = chip(chips, Glyph.Kind.HANDBRAKE, WrxTheme.RED, "FRENO");
         ((TextView) ((LinearLayout) chipBrake).getChildAt(1)).setTextColor(WrxTheme.RED);
         chipBrake.setVisibility(View.GONE);
+        chipReverse = chip(chips, Glyph.Kind.CAM_REAR, WrxTheme.RED, "REVERSA");
+        ((TextView) ((LinearLayout) chipReverse).getChildAt(1)).setTextColor(WrxTheme.RED);
+        chipReverse.setVisibility(View.GONE);
         View lights = chip(chips, Glyph.Kind.LIGHTS, t.gold2, "Luces");
         chipLightsText = (TextView) ((LinearLayout) lights).getChildAt(1);
         View volt = chip(chips, Glyph.Kind.BATTERY, WrxTheme.OK, "-- V");
@@ -452,6 +455,13 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         else car.setImageResource(com.k4811.launcher.R.drawable.wrx_car);
         root.addView(car, at(378, 356, 480, 236));
         car.setOnClickListener(v -> showCarMenu());
+
+        carStatusBadge = t.label(this, "", 12.5f, WrxTheme.bodyBold(), WrxTheme.RED);
+        carStatusBadge.setGravity(Gravity.CENTER);
+        carStatusBadge.setBackground(t.cardOf(this, 0xCC1A0C0C, 8, true));
+        carStatusBadge.setVisibility(View.GONE);
+        WrxTheme.pad(carStatusBadge, 10, 4, 10, 4);
+        root.addView(carStatusBadge, at(450, 320, 336, 32));
 
         // Barra de Accesos Rápidos directa en Inicio
         LinearLayout quickBar = new LinearLayout(this);
@@ -822,6 +832,21 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         chipLightsText.setText(CarState.headlights ? "Luces" : "Día");
         boolean brake = CarState.handbrake != null && CarState.handbrake;
         chipBrake.setVisibility(brake ? View.VISIBLE : View.GONE);
+        boolean rev = CarState.reverse != null && CarState.reverse;
+        if (chipReverse != null) chipReverse.setVisibility(rev ? View.VISIBLE : View.GONE);
+        if (carStatusBadge != null) {
+            if (brake) {
+                carStatusBadge.setText("\u26a0\ufe0f FRENO DE MANO ACTIVO");
+                carStatusBadge.setTextColor(WrxTheme.RED);
+                carStatusBadge.setVisibility(View.VISIBLE);
+            } else if (rev) {
+                carStatusBadge.setText("\ud83d\udd34 MARCHA ATR\u00c1S / REVERSA");
+                carStatusBadge.setTextColor(WrxTheme.RED);
+                carStatusBadge.setVisibility(View.VISIBLE);
+            } else {
+                carStatusBadge.setVisibility(View.GONE);
+            }
+        }
         // Viaje y odómetro
         tripValue.setText(String.format(ES, "%.1f km", CarState.tripKm).replace('.', ','));
         long min = CarState.tripMovingMs / 60000;

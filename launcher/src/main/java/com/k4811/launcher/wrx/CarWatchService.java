@@ -49,6 +49,8 @@ public class CarWatchService extends Service {
     private static final String TAG = "K4811CarWatch";
     private static final String ACTION_QUERY_VOLTAGE = "com.nwd.action.ACTION_QUERY_CAN_BATTERY_VOLTAGE";
     private static final String ACTION_VOLTAGE = "com.nwd.action.ACTION_CAN_BATTERY_VOLTAGE";
+    private static final String ACTION_HAND_BREAK = "com.nwd.action.ACTION_HAND_BREAK_STATE_CHANGE";
+    private static final String ACTION_BACKCAR_SETUP = "com.android.action_update_backcar_setup";
     private static final String EXTRA_VOLTAGE = "extra_voltage_value";
     private static final String KEY_FAN_SWITCH = "mcu_smart_fan_switch";
     public static final String PKG_FRONT_CAM = "com.k4811.camera.front";
@@ -100,18 +102,82 @@ public class CarWatchService extends Service {
         start(c);
     }
 
-    private final BroadcastReceiver voltageReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver canReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            int raw = intent.getIntExtra(EXTRA_VOLTAGE, 0);
-            float v = Math.abs(raw) / 10f;
-            if (v <= 0f) return;
-            v = Math.max(8f, Math.min(18f, v));
-            voltsSmooth = Float.isNaN(voltsSmooth) ? v : voltsSmooth * 0.6f + v * 0.4f;
-            CarState.volts = v;
-            CarState.changed();
+            String act = intent.getAction();
+            if (ACTION_VOLTAGE.equals(act)) {
+                int raw = intent.getIntExtra(EXTRA_VOLTAGE, 0);
+                float v = Math.abs(raw) / 10f;
+                if (v <= 0f) return;
+                v = Math.max(8f, Math.min(18f, v));
+                voltsSmooth = Float.isNaN(voltsSmooth) ? v : voltsSmooth * 0.6f + v * 0.4f;
+                CarState.volts = v;
+                CarState.changed();
+            } else if (ACTION_HAND_BREAK.equals(act)) {
+                boolean hb = intent.getBooleanExtra("extra_hand_break_state", false);
+                boolean changed = !eq(hb, CarState.handbrake);
+                CarState.handbrake = hb;
+                if (changed) {
+                    CarState.changed();
+                    if (hb && !Float.isNaN(CarState.speedKmh) && CarState.speedKmh >= 5) {
+                        showBanner(P_HANDBRAKE, Glyph.Kind.HANDBRAKE, WrxTheme.RED,
+                            "¡Quita el freno de mano!", "Vas a " + Math.round(CarState.speedKmh) + " km/h con el freno puesto", 0, null);
+                        beep();
+                    } else if (!hb && bannerPriority == P_HANDBRAKE) {
+                        hideBanner();
+                    }
+                }
+            } else if (ACTION_BACKCAR_SETUP.equals(act)) {
+                checkReverseState();
+            }
         }
     };
+
+    private final ContentObserver canObserver = new ContentObserver(main) {
+        @Override
+        public void onChange(boolean selfChange) {
+            checkHandbrakeState();
+            checkReverseState();
+        }
+    };
+
+    private void checkHandbrakeState() {
+        try {
+            int val = Settings.System.getInt(getContentResolver(), "mcu_hand_break", -1);
+            if (val >= 0) {
+                boolean hb = val != 0;
+                boolean changed = !eq(hb, CarState.handbrake);
+                CarState.handbrake = hb;
+                if (changed) {
+                    CarState.changed();
+                    if (hb && !Float.isNaN(CarState.speedKmh) && CarState.speedKmh >= 5) {
+                        showBanner(P_HANDBRAKE, Glyph.Kind.HANDBRAKE, WrxTheme.RED,
+                            "¡Quita el freno de mano!", "Vas a " + Math.round(CarState.speedKmh) + " km/h con el freno puesto", 0, null);
+                        beep();
+                    } else if (!hb && bannerPriority == P_HANDBRAKE) {
+                        hideBanner();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void checkReverseState() {
+        try {
+            int val = Settings.System.getInt(getContentResolver(), "mcu_backcar_state", -1);
+            if (val >= 0) {
+                boolean rev = val == 1;
+                boolean changed = !eq(rev, CarState.reverse);
+                if (prevReverse && !rev) onReverseEnded();
+                prevReverse = rev;
+                CarState.reverse = rev;
+                if (changed) CarState.changed();
+            }
+        } catch (Exception ignored) {
+        }
+    }
 
     private final ContentObserver headlightObserver = new ContentObserver(main) {
         @Override
@@ -179,13 +245,24 @@ public class CarWatchService extends Service {
         gps.start();
         CarState.gpsAvailable = gps.available();
 
-        registerReceiver(voltageReceiver, new IntentFilter(ACTION_VOLTAGE));
+        IntentFilter canFilter = new IntentFilter();
+        canFilter.addAction(ACTION_VOLTAGE);
+        canFilter.addAction(ACTION_HAND_BREAK);
+        canFilter.addAction(ACTION_BACKCAR_SETUP);
+        registerReceiver(canReceiver, canFilter);
+
         getContentResolver().registerContentObserver(
             Settings.System.getUriFor(NwdSettings.KEY_NO_SOURCE_DEVICE), false, headlightObserver);
         getContentResolver().registerContentObserver(
             Settings.System.getUriFor(KEY_FAN_SWITCH), false, fanObserver);
+        getContentResolver().registerContentObserver(
+            Settings.System.getUriFor("mcu_hand_break"), false, canObserver);
+        getContentResolver().registerContentObserver(
+            Settings.System.getUriFor("mcu_backcar_state"), false, canObserver);
         headlightObserver.onChange(false);
         fanObserver.onChange(false);
+        checkHandbrakeState();
+        checkReverseState();
         loadSignals();
         ExternalApps.repairHd2DvrDisk(this);
         SportTimer.init(this);
@@ -215,11 +292,12 @@ public class CarWatchService extends Service {
         main.removeCallbacksAndMessages(null);
         if (gps != null) gps.stop();
         try {
-            unregisterReceiver(voltageReceiver);
+            unregisterReceiver(canReceiver);
         } catch (Exception ignored) {
         }
         getContentResolver().unregisterContentObserver(headlightObserver);
         getContentResolver().unregisterContentObserver(fanObserver);
+        getContentResolver().unregisterContentObserver(canObserver);
         saveTrip(true);
         if (speedVolume != null) speedVolume.release();
         removeCamBubble();
@@ -373,8 +451,8 @@ public class CarWatchService extends Service {
         Boolean hb = handbrakeSig == null ? null : handbrakeSig.read(this);
         Boolean rv = reverseSig == null ? null : reverseSig.read(this);
         boolean changed = !eq(hb, CarState.handbrake) || !eq(rv, CarState.reverse);
-        CarState.handbrake = hb;
-        CarState.reverse = rv;
+        if (hb != null) CarState.handbrake = hb;
+        if (rv != null) CarState.reverse = rv;
         boolean rev = rv != null && rv;
         if (prevReverse && !rev) onReverseEnded();
         prevReverse = rev;

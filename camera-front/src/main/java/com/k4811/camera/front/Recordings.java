@@ -77,10 +77,12 @@ final class Recordings {
         if (root != null) {
             File hd = new File(root, "HDDVR");
             scan(new File(hd, "rearcam"), REAR, out, 0);
-            scan(new File(hd, "frontcam"), FRONT, out, 0);
+            scan(new File(hd, "frontcam"), DASHCAM, out, 0);
             scan(new File(hd, "sensorlock"), LOCKED, out, 0);
         }
         scan(DASHCAM_DIR, DASHCAM, out, 0);
+        File fvDir = new File(Environment.getExternalStorageDirectory(), "Android/data/com.fvision.camera");
+        if (fvDir.exists()) scan(fvDir, DASHCAM, out, 2);
         // La dashcam es el disco "udisk" (su propia SD). Normalmente sus videos solo se leen con su app
         // (por VSFILE), pero si alguna vez aparecen como archivos, se muestran aquí.
         for (String r : DASHCAM_ROOTS) {

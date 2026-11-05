@@ -249,6 +249,7 @@ public class RecordingsActivity extends Activity {
                         .setTitle("Dashcam")
                         .setMessage("No se encontraron grabaciones.\n\nDiagnóstico del canal USB:\n" + res.debugInfo)
                         .setPositiveButton("Aceptar", null)
+                        .setNeutralButton("Abrir App Dashcam", (d, which) -> ExternalApps.openTrafficGuard(this))
                         .show();
                     return;
                 }
@@ -386,7 +387,7 @@ public class RecordingsActivity extends Activity {
         int n = 0;
         SimpleDateFormat dayKey = new SimpleDateFormat("yyyyMMdd", Locale.US);
         for (Recordings.Video v : all) {
-            if (!"Todas".equals(tab) && !tab.equals(v.kind)) continue;
+            if (!"Todas".equals(tab) && !tab.equals(v.kind) && !(Recordings.DASHCAM.equals(tab) && Recordings.FRONT.equals(v.kind))) continue;
             String day = dayKey.format(new Date(v.startMs));
             if (!day.equals(lastDay)) {
                 rows.add(dayLabel(v.startMs));
