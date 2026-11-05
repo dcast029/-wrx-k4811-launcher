@@ -29,14 +29,23 @@ public final class WrxTheme {
     public WrxTheme(boolean night) {
         this.night = night;
         if (night) {
-            bg = 0xFF07090C; bgTop = 0xFF151B23; panel = 0xFF11151B; panel2 = 0xFF181D25;
-            line = 0x14FFFFFF; text = 0xFFEEF1F4; muted = 0xFF8A94A3; dim = 0xFF56606D;
-            gold = 0xFFD6A94A; gold2 = 0xFFF0CD7A; onGold = 0xFF111111;
+            bg = 0xFF0A0D12; bgTop = 0xFF141A24; panel = 0xFF121620; panel2 = 0xFF19202C;
+            line = 0x24355580; text = 0xFFEEF1F6; muted = 0xFF8E9AAA; dim = 0xFF58667A;
+            gold = 0xFF1E6BFF; gold2 = 0xFF60A5FA; onGold = 0xFFFFFFFF; // Azul Subaru Rally Oficial
         } else {
-            bg = 0xFFE4E8ED; bgTop = 0xFFF7F8FA; panel = 0xFFFFFFFF; panel2 = 0xFFF2F4F7;
-            line = 0x16000000; text = 0xFF14181D; muted = 0xFF5D6774; dim = 0xFF9AA3AE;
-            gold = 0xFFC9962F; gold2 = 0xFFAE7F1E; onGold = 0xFF111111;
+            bg = 0xFFE5EAF2; bgTop = 0xFFF5F8FC; panel = 0xFFFFFFFF; panel2 = 0xFFF0F4FA;
+            line = 0x200D52D6; text = 0xFF121620; muted = 0xFF5A6678; dim = 0xFF95A2B5;
+            gold = 0xFF0D52D6; gold2 = 0xFF1E60D5; onGold = 0xFFFFFFFF;
         }
+    }
+
+    /** Color dinámico: Azul Subaru Rally en reposo, Rojo STI en velocidad. */
+    public int dynamicAccent(boolean moving) {
+        return moving ? 0xFFEF4444 : gold;
+    }
+
+    public int dynamicAccentLight(boolean moving) {
+        return moving ? 0xFFFF6B75 : gold2;
     }
 
     // ------------------------------------------------------------------ fuentes (vienen en el common)

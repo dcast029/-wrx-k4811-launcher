@@ -22,6 +22,8 @@ public final class CarState {
     public static boolean gpsAvailable = true;
     /** Altitud en metros sobre el nivel del mar; NaN = sin señal. */
     public static double altitudeMeters = Double.NaN;
+    /** Rumbo o dirección en grados (0° a 359°); NaN = sin rumbo. */
+    public static float bearing = Float.NaN;
     /** Última posición conocida (para saber si ya es de noche); por defecto, Santiago. */
     public static double lat = -33.45, lon = -70.66;
     public static boolean hasPosition;

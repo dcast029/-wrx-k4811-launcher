@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -31,6 +32,7 @@ import com.k4811.common.radio.Preset;
 import com.k4811.common.radio.RadioClient;
 import com.k4811.common.radio.RadioState;
 import com.k4811.common.radio.StationArt;
+import com.k4811.common.system.ExternalApps;
 import com.k4811.common.ui.Ui;
 import com.k4811.launcher.HomeActivity;
 import com.k4811.launcher.home.HomeSession;
@@ -80,12 +82,16 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     private Glyph btGlyph;
     // Izquierda
     private TextView clock, dayView, dateView;
+    private GtaRadarView gtaRadar;
+    private TextView gtaLocText, gtaAltText, gtaTripText;
     private LinearLayout maintList;
     private ArcGauge gBatt, gTemp, gFan;
     private TextView gBattText, gTempText, gFanText;
     // Centro
     private ArcGauge speedGauge;
     private TextView speedText, speedUnit;
+    private View carGlow;
+    private boolean lastWasMoving = false;
     private ImageView carImage;
     private int currentCarResId = -1;
     private String currentCarCustomPath = null;
@@ -358,60 +364,105 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     }
 
     private void buildLeft() {
-        clock = t.label(this, "00:00", 118, WrxTheme.num(), t.text);
-        WrxTheme.spacing(clock, -0.03f);
-        root.addView(clock, at(24, 58, 340, -1));
+        // 1. Reloj y fecha estilo iPhone / executive
+        LinearLayout timeBox = new LinearLayout(this);
+        timeBox.setOrientation(LinearLayout.VERTICAL);
+        root.addView(timeBox, at(28, 50, 330, -1));
+
+        LinearLayout clkRow = new LinearLayout(this);
+        clkRow.setGravity(Gravity.CENTER_VERTICAL);
+        clock = t.label(this, "00:00", 36, WrxTheme.numBold(), t.text);
         clock.setOnClickListener(v -> {
             try {
                 startActivity(new Intent(Settings.ACTION_DATE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             } catch (Exception ignored) {
             }
         });
+        clkRow.addView(clock);
+
+        TextView tagWrx = t.label(this, "WRX FA20 DIT", 11.5f, WrxTheme.bodyBold(), t.gold);
+        tagWrx.setBackground(t.cardOf(this, t.panel2, 6, false));
+        WrxTheme.pad(tagWrx, 6, 2, 6, 2);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(-2, -2);
+        tlp.leftMargin = px(10);
+        clkRow.addView(tagWrx, tlp);
+        timeBox.addView(clkRow);
+
         LinearLayout date = new LinearLayout(this);
-        dayView = t.label(this, "", 18, WrxTheme.bodyBold(), t.text);
-        dateView = t.label(this, "", 18, WrxTheme.bodyMedium(), t.muted);
+        dayView = t.label(this, "", 15, WrxTheme.bodyBold(), t.text);
+        dateView = t.label(this, "", 15, WrxTheme.bodyMedium(), t.muted);
         date.addView(dayView);
         date.addView(dateView);
-        root.addView(date, at(30, 192, 330, -1));
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(-2, -2);
+        dlp.topMargin = px(2);
+        timeBox.addView(date, dlp);
 
-        // Mantenciones
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(t.card(this, 22));
-        WrxTheme.pad(card, 18, 16, 18, 14);
-        root.addView(card, at(28, 234, 330, 238));
-        card.setOnClickListener(v -> startActivity(new Intent(this, WrxRegistryActivity.class)));
-        LinearLayout head = new LinearLayout(this);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(new Glyph(this).set(Glyph.Kind.TRIP).color(t.gold), new LinearLayout.LayoutParams(px(18), px(18)));
-        TextView ht = t.label(this, "REGISTRO & BENCINA", 12, WrxTheme.bodyBold(), t.gold);
-        WrxTheme.spacing(ht, 0.16f);
-        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(0, -2, 1);
-        hlp.leftMargin = px(8);
-        head.addView(ht, hlp);
-        TextView openLbl = t.label(this, "ABRIR ›", 11.5f, WrxTheme.bodyBold(), t.gold);
-        head.addView(openLbl);
-        card.addView(head);
+        // 2. Tarjeta Minimapa GPS estilo GTA
+        LinearLayout gtaCard = new LinearLayout(this);
+        gtaCard.setOrientation(LinearLayout.VERTICAL);
+        gtaCard.setBackground(t.card(this, 22));
+        WrxTheme.pad(gtaCard, 14, 12, 14, 12);
+        root.addView(gtaCard, at(28, 124, 330, 336));
+
+        LinearLayout gtaHead = new LinearLayout(this);
+        gtaHead.setGravity(Gravity.CENTER_VERTICAL);
+        View gtaDot = new View(this);
+        GradientDrawable gdDot = new GradientDrawable();
+        gdDot.setShape(GradientDrawable.OVAL);
+        gdDot.setColor(t.gold);
+        gtaDot.setBackground(gdDot);
+        gtaHead.addView(gtaDot, new LinearLayout.LayoutParams(px(8), px(8)));
+
+        TextView gtaTitle = t.label(this, "RADAR NAVEGACIÓN · GTA GPS", 11.5f, WrxTheme.bodyBold(), t.gold);
+        WrxTheme.spacing(gtaTitle, 0.12f);
+        LinearLayout.LayoutParams gtlp = new LinearLayout.LayoutParams(0, -2, 1);
+        gtlp.leftMargin = px(7);
+        gtaHead.addView(gtaTitle, gtlp);
+
+        TextView gtaMapsLink = t.label(this, "MAPS ›", 11f, WrxTheme.bodyBold(), t.muted);
+        gtaHead.addView(gtaMapsLink);
+        gtaCard.addView(gtaHead);
+
+        gtaRadar = new GtaRadarView(this);
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, px(196));
+        rlp.topMargin = px(8);
+        gtaCard.addView(gtaRadar, rlp);
+
+        LinearLayout gtaStats = new LinearLayout(this);
+        gtaStats.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams sslp = new LinearLayout.LayoutParams(-1, -2);
+        sslp.topMargin = px(8);
+        gtaCard.addView(gtaStats, sslp);
+
+        gtaLocText = t.label(this, "GPS: BUSCANDO POSICIÓN...", 12f, WrxTheme.numMedium(), t.text);
+        gtaAltText = t.label(this, "ALTITUD: -- M · RUMBO: --", 11.5f, WrxTheme.bodyMedium(), t.muted);
+        gtaTripText = t.label(this, "VIAJE: 0.0 KM · 0 MIN", 11.5f, WrxTheme.bodyMedium(), t.muted);
+        gtaStats.addView(gtaLocText);
+        gtaStats.addView(gtaAltText);
+        gtaStats.addView(gtaTripText);
+
+        gtaCard.setOnClickListener(v -> DockSlots.openOrExplain(this, "maps"));
+
+        // 3. Tarjeta Inferior de Accesos y Registro
+        LinearLayout bottomCard = new LinearLayout(this);
+        bottomCard.setOrientation(LinearLayout.VERTICAL);
+        bottomCard.setBackground(t.card(this, 20));
+        WrxTheme.pad(bottomCard, 12, 8, 12, 8);
+        root.addView(bottomCard, at(28, 470, 330, 134));
+
+        TextView btnMaps = t.label(this, "🗺️ MAPAS A PANTALLA COMPLETA", 12f, WrxTheme.bodyBold(), t.text);
+        btnMaps.setGravity(Gravity.CENTER);
+        btnMaps.setBackground(t.cardOf(this, t.panel2, 10, true));
+        WrxTheme.pad(btnMaps, 10, 6, 10, 6);
+        btnMaps.setOnClickListener(v -> DockSlots.openOrExplain(this, "maps"));
+        bottomCard.addView(btnMaps, new LinearLayout.LayoutParams(-1, px(36)));
+
         maintList = new LinearLayout(this);
         maintList.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(-1, 0, 1);
-        mlp.topMargin = px(10);
-        card.addView(maintList, mlp);
-
-        // Medidores
-        gBatt = ring(28, Glyph.Kind.BATTERY, "BATERÍA");
-        gBattText = (TextView) ((FrameLayout) gBatt.getParent()).getTag();
-        gTemp = ring(28 + 113, Glyph.Kind.FAN, "RADIO");
-        gTempText = (TextView) ((FrameLayout) gTemp.getParent()).getTag();
-        gFan = ring(28 + 226, Glyph.Kind.FAN, "VENTILADOR");
-        gFanText = (TextView) ((FrameLayout) gFan.getParent()).getTag();
-        gBatt.range(10.5f, 15f);
-        gTemp.range(30, 90);
-        gFan.range(0, 1);
-        ((View) gBatt.getParent().getParent()).setOnClickListener(
-            v -> startActivity(new Intent(this, CanExplorerActivity.class)));
-        ((View) gTemp.getParent().getParent()).setOnClickListener(v -> openPkg(Apps.FAN));
-        ((View) gFan.getParent().getParent()).setOnClickListener(v -> openPkg(Apps.FAN));
+        mlp.topMargin = px(6);
+        bottomCard.addView(maintList, mlp);
+        bottomCard.setOnClickListener(v -> startActivity(new Intent(this, WrxRegistryActivity.class)));
     }
 
     /** Tarjeta con anillo, valor al centro y nombre abajo. El TextView del valor queda en el tag. */
@@ -451,14 +502,14 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         WrxTheme.spacing(speedUnit, 0.3f);
         root.addView(speedUnit, at(368, 252, 500, -1));
 
-        View glow = new View(this);
+        carGlow = new View(this);
         GradientDrawable g = new GradientDrawable();
         g.setGradientType(GradientDrawable.RADIAL_GRADIENT);
         g.setColors(new int[]{(t.gold & 0x00FFFFFF) | (t.night ? 0x48000000 : 0x38000000), 0x00000000});
         g.setGradientRadius(px(280));
         g.setShape(GradientDrawable.OVAL);
-        glow.setBackground(g);
-        root.addView(glow, at(338, 548, 560, 64));
+        carGlow.setBackground(g);
+        root.addView(carGlow, at(338, 548, 560, 64));
 
         carImage = new ImageView(this);
         carImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -572,15 +623,25 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         npSourceDot = new View(this);
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);
-        dot.setColor(t.gold);
+        dot.setColor(0xFF4ADE80); // verde conectado
         npSourceDot.setBackground(dot);
         src.addView(npSourceDot, new LinearLayout.LayoutParams(px(8), px(8)));
-        npSource = t.label(this, "", 11.5f, WrxTheme.bodyBold(), t.gold);
+        npSource = t.label(this, "APPLE CARPLAY · MÚSICA", 11.5f, WrxTheme.bodyBold(), t.gold);
         WrxTheme.spacing(npSource, 0.16f);
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-2, -2);
         slp.leftMargin = px(8);
         src.addView(npSource, slp);
         c.addView(src);
+
+        // BOTÓN DIRECTO A PANTALLA CARPLAY (Z-LINK)
+        TextView btnCarplay = t.label(this, "📲 ABRIR PANTALLA CARPLAY (Z-LINK)", 12f, WrxTheme.bodyBold(), 0xFFFFFFFF);
+        btnCarplay.setGravity(Gravity.CENTER);
+        btnCarplay.setBackground(t.cardOf(this, 0xFF1E6BFF, 12, true));
+        WrxTheme.pad(btnCarplay, 10, 6, 10, 6);
+        LinearLayout.LayoutParams cblp = new LinearLayout.LayoutParams(-1, px(38));
+        cblp.topMargin = px(10);
+        btnCarplay.setOnClickListener(v -> ExternalApps.openZlink(this));
+        c.addView(btnCarplay, cblp);
 
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -592,7 +653,7 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
             t.night ? new int[]{0xFF2B3340, 0xFF11161C} : new int[]{0xFF1D232B, 0xFF3A4452});
         artBg.setCornerRadius(px(16));
         art.setBackground(artBg);
-        npArtText = t.label(this, "FM", 26, WrxTheme.numBold(), 0xFFF0CD7A);
+        npArtText = t.label(this, "", 28, WrxTheme.numBold(), 0xFFFFFFFF);
         npArtText.setGravity(Gravity.CENTER);
         art.addView(npArtText, new FrameLayout.LayoutParams(-1, -1));
         npArt = new ImageView(this);
@@ -600,15 +661,15 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         npArt.setVisibility(View.GONE);
         art.addView(npArt, new FrameLayout.LayoutParams(-1, -1));
         if (android.os.Build.VERSION.SDK_INT >= 21) art.setClipToOutline(true);
-        row.addView(art, new LinearLayout.LayoutParams(px(96), px(96)));
+        row.addView(art, new LinearLayout.LayoutParams(px(90), px(90)));
         LinearLayout meta = new LinearLayout(this);
         meta.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(0, -2, 1);
         mlp.leftMargin = px(14);
         row.addView(meta, mlp);
-        npTitle = t.label(this, "", 21, WrxTheme.bodyBold(), t.text);
-        npSub = t.label(this, "", 14.5f, WrxTheme.bodyMedium(), t.muted);
-        npLine3 = t.label(this, "", 15, WrxTheme.num(), t.muted);
+        npTitle = t.label(this, "Apple CarPlay Audio", 19, WrxTheme.bodyBold(), t.text);
+        npSub = t.label(this, "Conectado vía Z-Link", 13.5f, WrxTheme.bodyMedium(), t.muted);
+        npLine3 = t.label(this, "Subaru Starlink Audio System", 13.5f, WrxTheme.num(), t.muted);
         meta.addView(npTitle);
         LinearLayout.LayoutParams l2 = new LinearLayout.LayoutParams(-2, -2);
         l2.topMargin = px(5);
@@ -628,9 +689,10 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         c.addView(track, tlp);
 
         npPresets = new LinearLayout(this);
-        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(-1, px(40));
-        plp.topMargin = px(14);
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(-1, px(36));
+        plp.topMargin = px(10);
         c.addView(npPresets, plp);
+        renderDspPresets();
 
         c.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1));
 
@@ -837,55 +899,111 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         }
         // Velocidad
         float s = CarState.speedKmh;
+        boolean isMoving = !Float.isNaN(s) && s >= 5.0f;
+
+        // Cambio dinámico de color: Azul Subaru en reposo, Rojo STI en velocidad
+        if (isMoving != lastWasMoving) {
+            lastWasMoving = isMoving;
+            int accent = isMoving ? 0xFFEF4444 : t.gold;
+            int accent2 = isMoving ? 0xFFFF6B75 : t.gold2;
+
+            if (carGlow != null) {
+                GradientDrawable gd = new GradientDrawable();
+                gd.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+                gd.setColors(new int[]{(accent & 0x00FFFFFF) | (t.night ? 0x55000000 : 0x38000000), 0x00000000});
+                gd.setGradientRadius(px(280));
+                gd.setShape(GradientDrawable.OVAL);
+                carGlow.setBackground(gd);
+            }
+
+            if (speedGauge != null) {
+                speedGauge.colors(t.line, accent, accent2, t.dim);
+            }
+        }
+
         if (Float.isNaN(s)) {
             speedText.setText("--");
             speedUnit.setText(CarState.gpsAvailable ? "KM/H · BUSCANDO GPS" : "KM/H · SIN GPS");
+            speedUnit.setTextColor(t.muted);
             speedGauge.setValue(0, true);
         } else {
             speedText.setText(String.valueOf(Math.round(s)));
             if (CarState.sportArmed) {
                 speedUnit.setText("🏁 LISTO PARA LARGAR");
                 speedUnit.setTextColor(WrxTheme.OK);
+            } else if (isMoving) {
+                speedUnit.setText("KM/H · MODO VELOCIDAD STI");
+                speedUnit.setTextColor(0xFFFF6B75);
             } else if (!Double.isNaN(CarState.altitudeMeters) && s > 3) {
                 speedUnit.setText(String.format(ES, "KM/H · %d M", Math.round(CarState.altitudeMeters)));
                 speedUnit.setTextColor(t.muted);
             } else {
-                speedUnit.setText("KM/H · GPS");
+                speedUnit.setText("KM/H · DETENIDO");
                 speedUnit.setTextColor(t.muted);
             }
             speedGauge.setValue(s, true);
         }
         updateCarImage(false);
+
+        // Actualizar Minimapa GTA y telemetría de navegación
+        if (gtaLocText != null) {
+            if (CarState.hasPosition) {
+                String latStr = String.format(Locale.US, "%.3f°%s", Math.abs(CarState.lat), CarState.lat >= 0 ? "N" : "S");
+                String lonStr = String.format(Locale.US, "%.3f°%s", Math.abs(CarState.lon), CarState.lon >= 0 ? "E" : "W");
+                gtaLocText.setText("GPS: " + latStr + " " + lonStr);
+            } else {
+                gtaLocText.setText("GPS: " + (CarState.gpsAvailable ? "BUSCANDO SEÑAL..." : "SIN SEÑAL"));
+            }
+        }
+        if (gtaAltText != null) {
+            String altStr = Double.isNaN(CarState.altitudeMeters) ? "-- M" : Math.round(CarState.altitudeMeters) + " M";
+            String hdgStr = Float.isNaN(CarState.bearing) ? "NORTE" : Math.round(CarState.bearing) + "°";
+            gtaAltText.setText("ALTITUD: " + altStr + " · RUMBO: " + hdgStr);
+        }
+        if (gtaTripText != null) {
+            long min = CarState.tripMovingMs / 60000;
+            gtaTripText.setText(String.format(ES, "VIAJE: %.1f KM · %d MIN", CarState.tripKm, min));
+        }
+        if (gtaRadar != null) {
+            gtaRadar.update(isMoving, Float.isNaN(CarState.bearing) ? 0f : CarState.bearing);
+        }
+
         // Batería
         float v = CarState.volts;
         if (Float.isNaN(v)) {
             chipVoltText.setText("-- V");
-            gBattText.setText("--");
-            gBatt.setValue(10.5f, false);
+            if (gBattText != null) gBattText.setText("--");
+            if (gBatt != null) gBatt.setValue(10.5f, false);
         } else {
             String vs = String.format(Locale.US, "%.1f", v);
             chipVoltText.setText(vs + " V");
-            gBattText.setText(vs);
+            if (gBattText != null) gBattText.setText(vs);
             int col = v < 11.6f ? WrxTheme.RED : v < 12.2f ? WrxTheme.WARN : WrxTheme.OK;
-            gBatt.colors(t.line, col, 0, t.dim);
-            gBatt.setValue(v, true);
+            if (gBatt != null) {
+                gBatt.colors(t.line, col, 0, t.dim);
+                gBatt.setValue(v, true);
+            }
         }
         // Temperatura de la radio
         float temp = CarState.radioTempC;
         if (Float.isNaN(temp)) {
             chipTempText.setText(CarState.fanOn ? "ON" : "--");
-            gTempText.setText("--");
+            if (gTempText != null) gTempText.setText("--");
         } else {
             chipTempText.setText(Math.round(temp) + " °C");
-            gTempText.setText(Math.round(temp) + "°");
+            if (gTempText != null) gTempText.setText(Math.round(temp) + "°");
             int col = temp >= 75 ? WrxTheme.RED : temp >= 60 ? WrxTheme.WARN : WrxTheme.COOL;
-            gTemp.colors(t.line, col, 0, t.dim);
-            gTemp.setValue(temp, true);
+            if (gTemp != null) {
+                gTemp.colors(t.line, col, 0, t.dim);
+                gTemp.setValue(temp, true);
+            }
         }
         // Ventilador
-        gFanText.setText(CarState.fanOn ? "ON" : "OFF");
-        gFan.colors(t.line, t.gold, 0, t.dim);
-        gFan.setValue(CarState.fanOn ? 1 : 0, true);
+        if (gFanText != null) gFanText.setText(CarState.fanOn ? "ON" : "OFF");
+        if (gFan != null) {
+            gFan.colors(t.line, t.gold, 0, t.dim);
+            gFan.setValue(CarState.fanOn ? 1 : 0, true);
+        }
         // Luces, puertas, freno de mano y reversa
         chipLightsText.setText(CarState.headlights ? "Luces" : "Día");
         boolean brake = CarState.handbrake != null && CarState.handbrake;
@@ -943,6 +1061,7 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     }
 
     private void renderMaintenance() {
+        if (maintList == null) return;
         maintList.removeAllViews();
 
         // 1. Fila Bencina rápida
@@ -1213,11 +1332,12 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
                 break;
             }
             default:
-                npSource.setText("NADA SONANDO");
-                npTitle.setText("Elige una fuente");
-                npSub.setText("Radio, música o Bluetooth en el dock");
-                npArtText.setText("♪");
-                controls = false;
+                npSource.setText("APPLE CARPLAY · MÚSICA");
+                npTitle.setText("Apple CarPlay Audio");
+                npSub.setText("Toca para abrir CarPlay (Z-Link)");
+                npArtText.setText("");
+                renderDspPresets();
+                controls = true;
                 break;
         }
         npLine3.setText(line3);
@@ -1229,6 +1349,29 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
             npProgress.setScaleX(progress);
         }
         renderArt(s);
+    }
+
+    private void renderDspPresets() {
+        if (npPresets == null) return;
+        npPresets.removeAllViews();
+        String[] eqNames = {"Boxer Bass", "Ruta 120", "Vocal Punch", "Plano"};
+        for (int i = 0; i < eqNames.length; i++) {
+            final String name = eqNames[i];
+            TextView chip = t.label(this, name, 11f, WrxTheme.bodyBold(), i == 0 ? t.onGold : t.muted);
+            chip.setGravity(Gravity.CENTER);
+            chip.setBackground(i == 0 ? t.cardOf(this, t.gold, 10, true) : t.cardOf(this, t.panel2, 10, true));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
+            if (i > 0) lp.leftMargin = px(6);
+            npPresets.addView(chip, lp);
+            chip.setOnClickListener(v -> {
+                Toast.makeText(this, "Perfil Audio WRX: " + name, Toast.LENGTH_SHORT).show();
+            });
+            chip.setOnLongClickListener(v -> {
+                startActivity(new Intent(this, WrxSoundTestActivity.class));
+                return true;
+            });
+        }
+        npPresets.setVisibility(View.VISIBLE);
     }
 
     private void renderPresets(boolean fm) {
@@ -1338,8 +1481,23 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
                 else session.btTransport(snap.btPlaying ? HomeSession.BT_PAUSE : HomeSession.BT_PLAY);
                 break;
             default:
+                sendMediaKeyEvent(what);
                 break;
         }
+    }
+
+    private void sendMediaKeyEvent(int what) {
+        int keyCode = what < 0 ? KeyEvent.KEYCODE_MEDIA_PREVIOUS
+                    : what > 0 ? KeyEvent.KEYCODE_MEDIA_NEXT
+                    : KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
+        try {
+            Intent down = new Intent(Intent.ACTION_MEDIA_BUTTON);
+            down.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
+            sendOrderedBroadcast(down, null);
+            Intent up = new Intent(Intent.ACTION_MEDIA_BUTTON);
+            up.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP, keyCode));
+            sendOrderedBroadcast(up, null);
+        } catch (Throwable ignored) {}
     }
 
     private void openNowPlaying() {
@@ -1355,6 +1513,7 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
                 DockSlots.open(this, "bt_music");
                 break;
             default:
+                ExternalApps.openZlink(this);
                 break;
         }
     }

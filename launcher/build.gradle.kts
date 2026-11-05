@@ -11,8 +11,8 @@ android {
         // applicationId: definido na tabela de packages do build.gradle.kts da raiz
         minSdk = 17     // Android 4.2, igual ao apps originais da NWD
         targetSdk = 19  // Android 4.4, igual ao apps originais da NWD
-        versionCode = 20270108  // mayor que el de todos los originais (o com.nwd.audioset está em 20260915)
-        versionName = "3.8.0-wrx"
+        versionCode = 20270109  // mayor que el de todos los originais (o com.nwd.audioset está em 20260915)
+        versionName = "3.9.0-wrx"
     }
 
     buildFeatures {

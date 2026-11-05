@@ -394,6 +394,7 @@ public class CarWatchService extends Service {
         float speed = fix.moving() ? fix.speedKmh : 0f;
         CarState.speedKmh = speed;
         CarState.altitudeMeters = fix.altitude;
+        CarState.bearing = fix.bearing;
         DvrWatch.logGps(fix.latitude, fix.longitude, speed);
         speedVolume.onSpeed(speed);
         CarState.lat = fix.latitude;
