@@ -32,6 +32,48 @@ public final class CarState {
     /** null = señal sin calibrar. */
     public static Boolean handbrake;
     public static Boolean reverse;
+
+    /** Puertas y maletero por CAN Bus (Subaru Raise). */
+    public static boolean doorFrontLeft;   // Conductor (Piloto)
+    public static boolean doorFrontRight;  // Copiloto (Acompañante)
+    public static boolean doorBackLeft;    // Trasera Izquierda
+    public static boolean doorBackRight;   // Trasera Derecha
+    public static boolean doorTrunk;       // Maletero / Maleta
+    public static boolean doorHood;        // Capó delantero
+
+    public static boolean anyDoorOpen() {
+        return doorFrontLeft || doorFrontRight || doorBackLeft || doorBackRight || doorTrunk || doorHood;
+    }
+
+    public static int openDoorsCount() {
+        int c = 0;
+        if (doorFrontLeft) c++;
+        if (doorFrontRight) c++;
+        if (doorBackLeft) c++;
+        if (doorBackRight) c++;
+        if (doorTrunk) c++;
+        if (doorHood) c++;
+        return c;
+    }
+
+    public static String openDoorsDescription() {
+        List<String> list = new ArrayList<>();
+        if (doorFrontLeft) list.add("Conductor");
+        if (doorFrontRight) list.add("Copiloto");
+        if (doorBackLeft) list.add("Tras. Izq.");
+        if (doorBackRight) list.add("Tras. Der.");
+        if (doorTrunk) list.add("Maletero");
+        if (doorHood) list.add("Capó");
+        if (list.isEmpty()) return "";
+        if (list.size() == 1) return "Puerta " + list.get(0);
+        if (list.size() == 2) return list.get(0) + " y " + list.get(1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) sb.append(i == list.size() - 1 ? " y " : ", ");
+            sb.append(list.get(i));
+        }
+        return sb.toString();
+    }
     /** Temperatura del procesador de la radio; NaN = no se puede leer. */
     public static float radioTempC = Float.NaN;
     public static boolean fanOn;

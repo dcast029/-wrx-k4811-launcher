@@ -75,8 +75,8 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     private FrameLayout root;
 
     // Arriba
-    private View chipBrake, chipReverse;
-    private TextView chipLightsText, chipVoltText, chipTempText, carStatusBadge;
+    private View chipBrake, chipReverse, chipDoor;
+    private TextView chipLightsText, chipVoltText, chipTempText, chipDoorText, carStatusBadge;
     private Glyph btGlyph;
     // Izquierda
     private TextView clock, dayView, dateView;
@@ -291,6 +291,16 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         lp.topMargin = px(6);
         lp.rightMargin = px(20);
         root.addView(chips, lp);
+
+        chipDoor = chip(chips, Glyph.Kind.DOOR, WrxTheme.RED, "PUERTA");
+        chipDoorText = (TextView) ((LinearLayout) chipDoor).getChildAt(1);
+        chipDoorText.setTextColor(WrxTheme.RED);
+        chipDoor.setVisibility(View.GONE);
+        chipDoor.setOnClickListener(v -> {
+            if (CarState.anyDoorOpen()) {
+                android.widget.Toast.makeText(this, "Abierta(s): " + CarState.openDoorsDescription(), android.widget.Toast.LENGTH_SHORT).show();
+            }
+        });
 
         chipBrake = chip(chips, Glyph.Kind.HANDBRAKE, WrxTheme.RED, "FRENO");
         ((TextView) ((LinearLayout) chipBrake).getChildAt(1)).setTextColor(WrxTheme.RED);
@@ -828,14 +838,36 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
         gFanText.setText(CarState.fanOn ? "ON" : "OFF");
         gFan.colors(t.line, t.gold, 0, t.dim);
         gFan.setValue(CarState.fanOn ? 1 : 0, true);
-        // Luces y freno de mano
+        // Luces, puertas, freno de mano y reversa
         chipLightsText.setText(CarState.headlights ? "Luces" : "Día");
         boolean brake = CarState.handbrake != null && CarState.handbrake;
         chipBrake.setVisibility(brake ? View.VISIBLE : View.GONE);
         boolean rev = CarState.reverse != null && CarState.reverse;
         if (chipReverse != null) chipReverse.setVisibility(rev ? View.VISIBLE : View.GONE);
+
+        boolean doorOpen = CarState.anyDoorOpen();
+        if (chipDoor != null) {
+            chipDoor.setVisibility(doorOpen ? View.VISIBLE : View.GONE);
+            if (doorOpen && chipDoorText != null) {
+                if (CarState.doorTrunk && CarState.openDoorsCount() == 1) {
+                    chipDoorText.setText("MALETERO");
+                } else if (CarState.doorHood && CarState.openDoorsCount() == 1) {
+                    chipDoorText.setText("CAPÓ");
+                } else if (CarState.openDoorsCount() == 1) {
+                    chipDoorText.setText(CarState.openDoorsDescription().toUpperCase(Locale.US));
+                } else {
+                    chipDoorText.setText("PUERTAS (" + CarState.openDoorsCount() + ")");
+                }
+            }
+        }
+
         if (carStatusBadge != null) {
-            if (brake) {
+            if (doorOpen) {
+                String desc = CarState.openDoorsDescription().toUpperCase(Locale.US);
+                carStatusBadge.setText("\u26a0\ufe0f " + desc + " ABIERTA");
+                carStatusBadge.setTextColor(WrxTheme.RED);
+                carStatusBadge.setVisibility(View.VISIBLE);
+            } else if (brake) {
                 carStatusBadge.setText("\u26a0\ufe0f FRENO DE MANO ACTIVO");
                 carStatusBadge.setTextColor(WrxTheme.RED);
                 carStatusBadge.setVisibility(View.VISIBLE);

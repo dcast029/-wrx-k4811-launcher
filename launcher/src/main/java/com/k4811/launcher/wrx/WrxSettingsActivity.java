@@ -111,6 +111,8 @@ public class WrxSettingsActivity extends Activity {
             () -> startActivity(new Intent(this, WrxSoundTestActivity.class)));
 
         section("AVISOS");
+        toggle("Puerta o maletero abierto en marcha", "Avisa y pita si inicias la marcha con puertas abiertas",
+            WrxPrefs.ALERT_DOORS, true);
         toggle("Freno de mano puesto andando",
             hb == null ? "Primero calíbralo en el Explorador CAN" : "Señal: " + hb.describe(),
             WrxPrefs.ALERT_HANDBRAKE, true);

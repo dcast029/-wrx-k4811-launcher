@@ -12,6 +12,7 @@ public final class WrxPrefs {
 
     /** 0 = automático (faros), 1 = siempre día, 2 = siempre noche. */
     public static final String THEME = "theme_mode";
+    public static final String ALERT_DOORS = "alert_doors";
     public static final String ALERT_HANDBRAKE = "alert_handbrake";
     public static final String ALERT_LIGHTS = "alert_lights";
     public static final String ALERT_BATTERY = "alert_battery";

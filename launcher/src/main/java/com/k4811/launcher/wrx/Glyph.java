@@ -16,7 +16,7 @@ public class Glyph extends View {
     public enum Kind {
         HOME, RADIO, MUSIC, BLUETOOTH, PHONE, CAM_FRONT, CAM_REAR, DASHCAM, CARPLAY, YOUTUBE, APPS, EQ,
         MAPS, VIDEO, CAM360, AUX, WRENCH, TRIP, SETTINGS, BATTERY, FAN, LIGHTS, PLAY, PAUSE, PREV, NEXT,
-        POWER, PLUS, CHECK, TRASH, WARNING, HANDBRAKE, CAN, APP, CLOSE
+        POWER, PLUS, CHECK, TRASH, WARNING, HANDBRAKE, CAN, APP, CLOSE, DOOR
     }
 
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -316,6 +316,12 @@ public class Glyph extends View {
             case CLOSE:
                 line(c, 6, 6, 18, 18);
                 line(c, 18, 6, 6, 18);
+                break;
+            case DOOR:
+                rrect(c, 6, 3, 18, 21, 2);
+                line(c, 6, 9, 18, 9);
+                line(c, 6, 15, 18, 15);
+                c.drawCircle(15, 12, 1.2f, fill);
                 break;
             case APP:
             default:

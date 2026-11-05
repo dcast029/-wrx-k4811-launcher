@@ -51,13 +51,18 @@ public class CarWatchService extends Service {
     private static final String ACTION_VOLTAGE = "com.nwd.action.ACTION_CAN_BATTERY_VOLTAGE";
     private static final String ACTION_HAND_BREAK = "com.nwd.action.ACTION_HAND_BREAK_STATE_CHANGE";
     private static final String ACTION_BACKCAR_SETUP = "com.android.action_update_backcar_setup";
+    private static final String ACTION_CAN_DOOR_STATE_CHANGE_NWD = "com.nwd.ACTION_CAN_DOOR_STATE_CHANGE";
+    private static final String ACTION_CAN_DOOR_STATE_CHANGE = "com.nwd.action.ACTION_CAN_DOOR_STATE_CHANGE";
+    private static final String ACTION_CAN_DOOR_WINDOW = "com.nwd.ACTION_CAN_DOOR_WINDOW";
     private static final String EXTRA_VOLTAGE = "extra_voltage_value";
+    private static final String EXTRA_CAN_DOOR_STATE = "extra_can_door_state";
+    private static final String EXTRA_CAR_DOOR = "extra_car_door";
     private static final String KEY_FAN_SWITCH = "mcu_smart_fan_switch";
     public static final String PKG_FRONT_CAM = "com.k4811.camera.front";
 
     // Prioridades de los avisos (mayor = más importante).
     private static final int P_DVR = 3;
-    private static final int P_HANDBRAKE = 5, P_LIGHTS = 4, P_CHARGE = 3, P_HOT = 2, P_MAINT = 1;
+    private static final int P_DOOR = 6, P_HANDBRAKE = 5, P_LIGHTS = 4, P_CHARGE = 3, P_HOT = 2, P_MAINT = 1;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private GpsClient gps;
@@ -130,9 +135,75 @@ public class CarWatchService extends Service {
                 }
             } else if (ACTION_BACKCAR_SETUP.equals(act)) {
                 checkReverseState();
+            } else if (ACTION_CAN_DOOR_STATE_CHANGE.equals(act) || ACTION_CAN_DOOR_STATE_CHANGE_NWD.equals(act)
+                    || ACTION_CAN_DOOR_WINDOW.equals(act)) {
+                handleDoorStateChange(intent);
             }
         }
     };
+
+    private void handleDoorStateChange(Intent intent) {
+        try {
+            byte state = 0;
+            if (intent.hasExtra(EXTRA_CAN_DOOR_STATE)) {
+                try {
+                    state = intent.getByteExtra(EXTRA_CAN_DOOR_STATE, (byte) 0);
+                } catch (Exception e) {
+                    state = (byte) intent.getIntExtra(EXTRA_CAN_DOOR_STATE, 0);
+                }
+                if (state == 0) {
+                    state = (byte) intent.getIntExtra(EXTRA_CAN_DOOR_STATE, 0);
+                }
+            }
+            boolean fl = (state & 0x40) != 0; // Front Left (Piloto)
+            boolean fr = (state & 0x80) != 0; // Front Right (Copiloto)
+            boolean rl = (state & 0x10) != 0; // Rear Left
+            boolean rr = (state & 0x20) != 0; // Rear Right
+            boolean trunk = (state & 0x08) != 0; // Trunk
+            boolean hood = (state & 0x04) != 0; // Hood
+
+            boolean[] bools = intent.getBooleanArrayExtra(EXTRA_CAR_DOOR);
+            if (bools != null) {
+                if (bools.length > 0) fl |= bools[0];
+                if (bools.length > 1) fr |= bools[1];
+                if (bools.length > 2) rl |= bools[2];
+                if (bools.length > 3) rr |= bools[3];
+                if (bools.length > 4) trunk |= bools[4];
+                if (bools.length > 5) hood |= bools[5];
+            }
+
+            boolean changed = (fl != CarState.doorFrontLeft)
+                || (fr != CarState.doorFrontRight)
+                || (rl != CarState.doorBackLeft)
+                || (rr != CarState.doorBackRight)
+                || (trunk != CarState.doorTrunk)
+                || (hood != CarState.doorHood);
+
+            if (changed) {
+                CarState.doorFrontLeft = fl;
+                CarState.doorFrontRight = fr;
+                CarState.doorBackLeft = rl;
+                CarState.doorBackRight = rr;
+                CarState.doorTrunk = trunk;
+                CarState.doorHood = hood;
+                CarState.changed();
+                Log.d(TAG, "CAN Door State: FL=" + fl + " FR=" + fr + " RL=" + rl + " RR=" + rr + " Trunk=" + trunk + " Hood=" + hood);
+
+                if (CarState.anyDoorOpen()) {
+                    if (WrxPrefs.on(this, WrxPrefs.ALERT_DOORS, true)
+                            && !Float.isNaN(CarState.speedKmh) && CarState.speedKmh >= 5) {
+                        showBanner(P_DOOR, Glyph.Kind.DOOR, WrxTheme.RED,
+                            "¡Puerta abierta!", CarState.openDoorsDescription() + " a " + Math.round(CarState.speedKmh) + " km/h", 0, null);
+                        beep();
+                    }
+                } else if (bannerPriority == P_DOOR) {
+                    hideBanner();
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "handleDoorStateChange: " + t.getMessage());
+        }
+    }
 
     private final ContentObserver canObserver = new ContentObserver(main) {
         @Override
@@ -249,6 +320,9 @@ public class CarWatchService extends Service {
         canFilter.addAction(ACTION_VOLTAGE);
         canFilter.addAction(ACTION_HAND_BREAK);
         canFilter.addAction(ACTION_BACKCAR_SETUP);
+        canFilter.addAction(ACTION_CAN_DOOR_STATE_CHANGE);
+        canFilter.addAction(ACTION_CAN_DOOR_STATE_CHANGE_NWD);
+        canFilter.addAction(ACTION_CAN_DOOR_WINDOW);
         registerReceiver(canReceiver, canFilter);
 
         getContentResolver().registerContentObserver(
@@ -526,6 +600,21 @@ public class CarWatchService extends Service {
                 startActivity(home);
             } catch (Exception ignored) {
             }
+        }
+
+        // 0. Puerta o maletero abierto en marcha (prioridad máxima sobre cualquier app).
+        boolean doorAlert = WrxPrefs.on(this, WrxPrefs.ALERT_DOORS, true)
+            && CarState.anyDoorOpen() && known && speed >= 5;
+        if (doorAlert) {
+            showBanner(P_DOOR, Glyph.Kind.DOOR, WrxTheme.RED,
+                "¡Puerta abierta!", CarState.openDoorsDescription() + " a " + Math.round(speed) + " km/h", 0, null);
+            if (now - lastBeepAt > 3000) {
+                lastBeepAt = now;
+                beep();
+            }
+            return;
+        } else if (bannerPriority == P_DOOR) {
+            hideBanner();
         }
 
         // 1. Freno de mano puesto andando.

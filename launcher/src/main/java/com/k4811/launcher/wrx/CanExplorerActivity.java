@@ -48,6 +48,8 @@ public class CanExplorerActivity extends Activity {
         "com.nwd.action.ACTION_MCU_STATE_CHANGE", "com.nwd.ACTION_MUTE_STATE_CHANGE",
         "com.nwd.action.ACTION_CHANGE_SOURCE", "com.nwd.action.ACTION_APP_IN_OUT",
         "com.android.action_update_backcar_setup",
+        "com.nwd.action.ACTION_CAN_DOOR_STATE_CHANGE", "com.nwd.ACTION_CAN_DOOR_STATE_CHANGE",
+        "com.nwd.ACTION_CAN_DOOR_WINDOW", "com.nwd.action.ACTION_CAN_RADAR_STATE_CHANGE",
     };
 
     private final Handler handler = new Handler(Looper.getMainLooper());
