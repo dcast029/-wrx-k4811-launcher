@@ -5,6 +5,7 @@ import com.k4811.common.audio.PlayerHandoff;
 import com.k4811.common.system.NwdSettings;
 import com.k4811.launcher.overlay.EdgeMenuService;
 import com.k4811.launcher.overlay.VolumeOverlayService;
+import com.k4811.launcher.wrx.CarWatchService;
 
 /**
  * Aplicação: base da suíte, Bluetooth conectado (o widget pausa a música BT), SettingService, o
@@ -18,5 +19,6 @@ public class LauncherApp extends SuiteApp {
         NwdSettings.init(this);
         VolumeOverlayService.start(this);
         EdgeMenuService.start(this);
+        CarWatchService.start(this);
     }
 }

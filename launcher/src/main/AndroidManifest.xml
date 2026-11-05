@@ -40,6 +40,18 @@
             android:launchMode="singleTask"
             android:screenOrientation="nosensor"
             android:stateNotNeeded="true">
+        </activity>
+
+        <!-- Tela inicial WRX (padrão): auto ao centro, velocímetro GPS, manutenções, dock editável.
+             A clássica (HomeActivity) continua acessível pelos Ajustes WRX. -->
+        <activity
+            android:name=".wrx.WrxHomeActivity"
+            android:clearTaskOnLaunch="true"
+            android:configChanges="fontScale|keyboard|keyboardHidden|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:stateNotNeeded="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -47,6 +59,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".wrx.MaintenanceActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|density"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustPan" />
+        <activity
+            android:name=".wrx.WrxSettingsActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|density"
+            android:screenOrientation="sensorLandscape" />
+        <activity
+            android:name=".wrx.CanExplorerActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|density"
+            android:screenOrientation="sensorLandscape" />
+        <activity
+            android:name=".wrx.WrxSoundTestActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|density"
+            android:screenOrientation="sensorLandscape" />
+        <!-- Vigila o carro (GPS, CAN, freio de mão) e mostra avisos por cima dos apps. -->
+        <service
+            android:name=".wrx.CarWatchService"
+            android:exported="false" />
 
         <!-- Gaveta: aberta pelo item Apps do dock, aqui e nos apps do suíte (com.k4811.launcher.action.APPS). -->
         <activity

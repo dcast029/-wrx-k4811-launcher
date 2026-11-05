@@ -28,6 +28,8 @@ val packages = linkedMapOf(
     "phone" to "com.nwd.android.phone",
     "eq" to "com.nwd.audioset",
     "fan" to "com.nwd.cpumonitor",
+    "camera-front" to "com.k4811.camera.front",
+    "puente" to "com.k4811.puente",
 )
 
 /** Nome do campo no BuildConfig do common para cada módulo (PKG_RADIO, PKG_BT_MUSIC…). */

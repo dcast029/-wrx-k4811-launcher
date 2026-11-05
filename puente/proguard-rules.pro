@@ -1,0 +1,1 @@
+-keep class com.k4811.puente.** { *; }

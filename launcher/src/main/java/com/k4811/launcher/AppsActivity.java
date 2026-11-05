@@ -84,6 +84,11 @@ public class AppsActivity extends Activity {
         adapter = new AppsAdapter();
         grid.setAdapter(adapter);
         grid.setOnItemClickListener((parent, view, position, id) -> open(view, position));
+        // Mantener presionado: ocultar la app del cajón (o desinstalarla si es tuya).
+        grid.setOnItemLongClickListener((parent, view, position, id) -> {
+            askHide(position);
+            return true;
+        });
         // Row height follows the area the grid really got.
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int h = b - t;
@@ -193,6 +198,39 @@ public class AppsActivity extends Activity {
         } catch (Exception e) {
             Toast.makeText(this, R.string.home_apps_not_found, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void askHide(int position) {
+        if (position < 0 || position >= apps.size()) return;
+        AppCatalog.Entry e = apps.get(position);
+        boolean system;
+        try {
+            system = (getPackageManager().getApplicationInfo(e.packageName, 0).flags
+                & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0;
+        } catch (Exception ex) {
+            system = true;
+        }
+        java.util.List<String> opts = new java.util.ArrayList<>();
+        opts.add("Ocultar «" + e.label + "» del cajón");
+        if (!system) opts.add("Desinstalar «" + e.label + "»");
+        opts.add("Volver a mostrar todas las apps ocultas");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(e.label)
+            .setItems(opts.toArray(new String[0]), (d, which) -> {
+                String o = opts.get(which);
+                if (o.startsWith("Ocultar")) {
+                    AppCatalog.setHidden(this, e.packageName, e.className, true);
+                    reload();
+                } else if (o.startsWith("Desinstalar")) {
+                    startActivity(new Intent(Intent.ACTION_DELETE,
+                        android.net.Uri.parse("package:" + e.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                } else {
+                    AppCatalog.showAll(this);
+                    reload();
+                }
+            })
+            .setNegativeButton("Cancelar", null)
+            .show();
     }
 
     private final class AppsAdapter extends BaseAdapter {

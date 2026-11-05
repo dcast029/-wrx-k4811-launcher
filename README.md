@@ -65,6 +65,9 @@ Function apps that replace stock NWD apps use the **same package** as the origin
 | **Fan** | Cooling fan preferences |
 | **Apps** | Paged grid of installed apps |
 | **Settings** | Language, theme, font, home layout, dock, assists, system options |
+| **WRX Edition** | Subaru WRX visual theme, Sport 0-100 & 0-60 timer, fuel consumption (km/L), GPS altitude, 1-tap rear video protection, front camera parking bubble |
+| **Grabaciones** | GPS-linked video player for rear camera (udiskh) and direct native JNI downloader for USB dashcam (udisk / Traffic Safety Guard via libuvccamera-lib.so) |
+| **Puente PC** | Built-in HTTP bridge for wireless APK uploading/installing, screenshot inspection and live car telemetry |
 
 Opening home **never** turns the radio on or interrupts playback.
 

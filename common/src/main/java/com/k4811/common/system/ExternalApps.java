@@ -13,9 +13,14 @@ import android.widget.Toast;
 import com.k4811.common.Apps;
 import com.k4811.common.R;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 /**
  * Head-unit apps that K4811 only launches (they don't become our own screens): AUX, video,
- * 360 camera, Z-Link (CarPlay / Android Auto) and the NWD settings menus.
+ * 360 camera, Z-Link (CarPlay / Android Auto), Streaming HD2, Traffic Safety Guard and NWD menus.
  */
 public final class ExternalApps {
     private ExternalApps() {
@@ -29,6 +34,10 @@ public final class ExternalApps {
     public static final String PKG_FACTORY = "com.nwd.factory.setting";
     /** Z-Link: wired/wireless CarPlay and Android Auto on NWD units. */
     public static final String PKG_ZLINK = "com.zjinnova.zlink";
+    /** Streaming HD2: Grabador DVR Trasero/Frontal NWD (graba en /storage/udiskh/HDDVR). */
+    public static final String PKG_HD2_CAM = "com.nwd.carkithd2cam";
+    /** Traffic Safety Guard: Dashcam USB con tarjeta microSD (/storage/udisk). */
+    public static final String PKG_TRAFFIC_GUARD = "com.fvision.camera";
 
     private static final String HOME_HORIZONTAL = ".home_horizontalActivity";
     private static final String ZLINK_MAIN = "com.zjinnova.android.zlink.features.main.MainActivity";
@@ -75,7 +84,174 @@ public final class ExternalApps {
     }
 
     public static void openAux(Context c) {
+        repairHd2DvrDisk(c);
         open(c, PKG_AUX, PKG_AUX + HOME_HORIZONTAL);
+    }
+
+    /**
+     * Repara el pendrive DVR (/storage/udiskh/HDDVR) y abre Streaming HD2 (com.nwd.carkithd2cam).
+     */
+    public static boolean openHd2Cam(Context c) {
+        repairHd2DvrDisk(c);
+        try {
+            Settings.System.putInt(c.getContentResolver(), "key_auxin_camerastate", 0);
+        } catch (Exception ignored) {
+        }
+        try {
+            SystemProps.requestSet(c, "persist.vendor.sensor.back.channel", "0");
+        } catch (Exception ignored) {
+        }
+        Intent launch = c.getPackageManager().getLaunchIntentForPackage(PKG_HD2_CAM);
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                c.startActivity(launch);
+                return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Abre la app Traffic Safety Guard (com.fvision.camera) de la Dashcam USB.
+     */
+    public static boolean openTrafficGuard(Context c) {
+        Intent launch = c.getPackageManager().getLaunchIntentForPackage(PKG_TRAFFIC_GUARD);
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                c.startActivity(launch);
+                return true;
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Repara en segundo plano la estructura FAT32 de /storage/udiskh/HDDVR para que Streaming HD2
+     * pueda grabar sin bloquearse por entradas corruptas de 0 bytes (ej. rearcam/202611 con fecha 1969),
+     * rescatando automáticamente las carpetas sanas (ej. 202610).
+     */
+    public static void repairHd2DvrDisk(Context c) {
+        final Context appCtx = c.getApplicationContext();
+        new Thread(() -> {
+            try {
+                // 1. Limpiar carpeta accidental en /storage/udisk si es el disco virtual de Traffic Safety Guard (VSFILE)
+                File udisk = new File("/storage/udisk");
+                if (new File(udisk, "VSFILE").exists() && new File(udisk, "HDDVR").exists()) {
+                    deleteEmptyOrCorruptRecursive(new File(udisk, "HDDVR"));
+                }
+
+                // 2. Asegurar que dvr_path apunte a udiskh si está montado
+                File udiskh = new File("/storage/udiskh");
+                if (!udiskh.exists() || !udiskh.isDirectory()) {
+                    udiskh = new File("/mnt/media_rw/udiskh");
+                }
+                if (!udiskh.exists() || !udiskh.isDirectory()) return;
+
+                if (appCtx != null) {
+                    try {
+                        Settings.System.putString(appCtx.getContentResolver(), "dvr_path", "/mnt/media_rw/udiskh");
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                File hddvr = new File(udiskh, "HDDVR");
+                if (!hddvr.exists()) hddvr.mkdirs();
+                new File(hddvr, ".formatflag").mkdirs();
+                new File(hddvr, ".nomedia").mkdirs();
+
+                String ym = new SimpleDateFormat("yyyyMM", Locale.US).format(new Date());
+                String dd = new SimpleDateFormat("dd", Locale.US).format(new Date());
+                String hh = new SimpleDateFormat("HH", Locale.US).format(new Date());
+
+                String[] subdirs = {"rearcam", "frontcam", "sensorlock", "pic"};
+                for (String sub : subdirs) {
+                    File dir = new File(hddvr, sub);
+                    if (dir.exists() && (!dir.isDirectory() || !dir.canRead())) {
+                        if (!dir.delete()) {
+                            dir.renameTo(new File(hddvr, "." + sub + "_bad_" + (System.currentTimeMillis() % 100000)));
+                        }
+                    }
+                    if (!dir.exists()) dir.mkdirs();
+
+                    // Verificar si el subdirectorio del mes actual (ej. rearcam/202611) es una entrada FAT32 corrupta
+                    File ymDir = new File(dir, ym);
+                    boolean ymCorrupt = ymDir.exists() && (!ymDir.isDirectory() || !ymDir.canRead());
+                    if (!ymCorrupt && dir.isDirectory()) {
+                        File[] children = dir.listFiles();
+                        if (children != null) {
+                            for (File ch : children) {
+                                if (!ch.canRead() || (!ch.isDirectory() && !ch.isFile())) {
+                                    if (!ch.delete()) {
+                                        ymCorrupt = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (ymCorrupt && !ymDir.delete()) {
+                        // En FAT32 sin root no se puede borrar el inodo corrupto, pero sí renombrar el padre y rescatar lo sano
+                        File quarantine = new File(hddvr, "." + sub + "_corrupt_" + (System.currentTimeMillis() % 100000));
+                        if (dir.renameTo(quarantine)) {
+                            File freshDir = new File(hddvr, sub);
+                            freshDir.mkdirs();
+                            File[] oldItems = quarantine.listFiles();
+                            if (oldItems != null) {
+                                for (File item : oldItems) {
+                                    if (item.canRead() && (item.isDirectory() || (item.isFile() && item.length() > 0))) {
+                                        item.renameTo(new File(freshDir, item.getName()));
+                                    }
+                                }
+                            }
+                            dir = freshDir;
+                        }
+                    }
+
+                    cleanCorruptEntriesRecursive(dir, 0);
+                    new File(dir, ".nomedia").mkdirs();
+                    if ("rearcam".equals(sub) || "frontcam".equals(sub)) {
+                        new File(dir, ym + "/" + dd + "/" + hh).mkdirs();
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }, "K4811-DvrRepair").start();
+    }
+
+    private static void cleanCorruptEntriesRecursive(File dir, int depth) {
+        if (dir == null || depth > 4 || !dir.exists() || !dir.isDirectory()) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            String name = f.getName();
+            if (".nomedia".equals(name) || ".formatflag".equals(name)) continue;
+            boolean badDate = f.lastModified() <= 315532800000L; // <= 1980
+            boolean neither = !f.isDirectory() && !f.isFile();
+            boolean emptyFile = f.isFile() && f.length() == 0;
+            if (!f.canRead() || neither || (emptyFile && badDate)) {
+                f.delete();
+            } else if (f.isDirectory()) {
+                cleanCorruptEntriesRecursive(f, depth + 1);
+            }
+        }
+    }
+
+    private static void deleteEmptyOrCorruptRecursive(File f) {
+        if (f == null || !f.exists()) return;
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null) {
+                for (File c : children) deleteEmptyOrCorruptRecursive(c);
+            }
+        }
+        if (f.isDirectory() || f.length() == 0) {
+            f.delete();
+        }
     }
 
     public static void openVideo(Context c) {

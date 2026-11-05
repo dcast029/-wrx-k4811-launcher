@@ -70,6 +70,7 @@ public final class AppCatalog {
             if (pkg == null || cls == null) continue;
             if (pkg.equals(ours) || keyboards.contains(pkg)) continue;
             if (!hardwareAllows(pkg, cls, features)) continue;
+            if (isHidden(context, pkg, cls)) continue;
             CharSequence title = info.loadLabel(pm);
             String label = title == null ? pkg : title.toString().trim();
             if (label.isEmpty()) label = pkg;
@@ -79,6 +80,52 @@ public final class AppCatalog {
         order.setStrength(Collator.PRIMARY);
         Collections.sort(apps, (a, b) -> order.compare(a.label, b.label));
         return apps;
+    }
+
+    // ------------------------------------------------------------------ apps ocultas
+
+    private static final String HIDDEN_PREFS = "wrx";
+    private static final String HIDDEN_KEY = "hidden_apps";
+    /** Ocultas de fábrica: no funcionan en este auto o no sirven (sin SIM, perfil CAN, demo 3D, trazas). */
+    private static final String[] DEFAULT_HIDDEN = {
+        "com.nwd.stereocar",
+        "com.android.dialer",
+        "com.nwd.can.setting/com.nwd.can.setting.AcControlActivityAlias",
+        "com.android.traceur",
+        "com.android.launcher/com.android.launcher2.WallpaperChooser",
+    };
+
+    /** Lista de ocultas: "paquete" (toda la app) o "paquete/clase" (un solo ícono). */
+    public static Set<String> hidden(Context c) {
+        android.content.SharedPreferences p = c.getSharedPreferences(HIDDEN_PREFS, Context.MODE_PRIVATE);
+        Set<String> s = p.getStringSet(HIDDEN_KEY, null);
+        if (s == null) {
+            s = new HashSet<>(java.util.Arrays.asList(DEFAULT_HIDDEN));
+            p.edit().putStringSet(HIDDEN_KEY, s).apply();
+        }
+        return new HashSet<>(s);
+    }
+
+    public static boolean isHidden(Context c, String pkg, String cls) {
+        Set<String> s = hidden(c);
+        return s.contains(pkg) || s.contains(pkg + "/" + cls);
+    }
+
+    public static void setHidden(Context c, String pkg, String cls, boolean hide) {
+        Set<String> s = hidden(c);
+        String key = pkg + "/" + cls;
+        if (hide) s.add(key);
+        else {
+            s.remove(key);
+            s.remove(pkg);
+        }
+        c.getSharedPreferences(HIDDEN_PREFS, Context.MODE_PRIVATE).edit().putStringSet(HIDDEN_KEY, s).apply();
+    }
+
+    /** Vuelve a mostrar todo (y no repone las de fábrica). */
+    public static void showAll(Context c) {
+        c.getSharedPreferences(HIDDEN_PREFS, Context.MODE_PRIVATE).edit()
+            .putStringSet(HIDDEN_KEY, new HashSet<String>()).apply();
     }
 
     public static void recycle(List<Entry> apps) {
