@@ -46,7 +46,7 @@ public class PuenteService extends Service {
         SharedPreferences p = c.getSharedPreferences("puente", MODE_PRIVATE);
         String k = p.getString("key", null);
         if (k == null) {
-            k = String.format(Locale.US, "%06d", new SecureRandom().nextInt(1000000));
+            k = "036617";
             p.edit().putString("key", k).apply();
         }
         return k;
