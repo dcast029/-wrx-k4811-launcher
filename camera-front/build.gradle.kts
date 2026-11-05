@@ -9,8 +9,8 @@ android {
     defaultConfig {
         minSdk = 19
         targetSdk = 19 // < 23: CAMERA, WRITE_SETTINGS y WRITE_EXTERNAL_STORAGE se conceden al instalar
-        versionCode = 20270102
-        versionName = "3.1.0"
+        versionCode = 20270103
+        versionName = "3.1.1"
         ndk {
             abiFilters += listOf("armeabi-v7a")
         }

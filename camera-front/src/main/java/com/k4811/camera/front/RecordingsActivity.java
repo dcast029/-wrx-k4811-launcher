@@ -240,14 +240,20 @@ public class RecordingsActivity extends Activity {
         loading.show();
 
         worker.execute(() -> {
-            final List<DashcamReader.FileItem> list = DashcamReader.listFiles();
+            final DashcamReader.ListResult res = DashcamReader.listFiles();
             handler.post(() -> {
                 if (isFinishing()) return;
                 loading.dismiss();
-                if (list.isEmpty()) {
-                    Toast.makeText(this, "No se encontraron videos en la dashcam o no respondió.", Toast.LENGTH_LONG).show();
+                if (res.items.isEmpty()) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("Dashcam")
+                        .setMessage("No se encontraron grabaciones.\n\nDiagnóstico del canal USB:\n" + res.debugInfo)
+                        .setPositiveButton("Aceptar", null)
+                        .show();
                     return;
                 }
+
+                List<DashcamReader.FileItem> list = res.items;
 
                 String[] names = new String[list.size()];
                 for (int i = 0; i < list.size(); i++) {

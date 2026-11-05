@@ -57,13 +57,29 @@ public class UvcCamera {
         }
         String res = initUvcCmd(path);
         Log.d(TAG, "initUvcCmd(" + path + ") -> " + res);
-        if (res != null && res.contains("_")) {
-            String[] parts = res.split("_");
+        if (res != null && !res.trim().isEmpty()) {
+            // El formato de retorno en el .so es "%d_%s" donde %d es el fd y %s el status
+            String[] parts = res.trim().split("_", 2);
+            cmd_fd_error = parts.length > 1 ? parts[1] : "";
             try {
-                nativeCmdFd = Integer.parseInt(parts[1]);
-                return nativeCmdFd;
+                int fd = Integer.parseInt(parts[0]);
+                if (fd > 0) {
+                    nativeCmdFd = fd;
+                    Log.d(TAG, "Canal HWC abierto con éxito: fd=" + nativeCmdFd + ", status=" + cmd_fd_error);
+                    return nativeCmdFd;
+                }
             } catch (Exception e) {
-                Log.e(TAG, "Error parseando fd: " + res, e);
+                // Fallback por si viniese invertido
+                if (parts.length > 1) {
+                    try {
+                        int fd = Integer.parseInt(parts[1]);
+                        if (fd > 0) {
+                            nativeCmdFd = fd;
+                            return nativeCmdFd;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                Log.e(TAG, "Error parseando fd de initUvcCmd: " + res, e);
             }
         }
         return -1;
@@ -85,7 +101,11 @@ public class UvcCamera {
 
     public synchronized void close() {
         if (nativeCmdFd > 0) {
-            releaseUvcCamera(nativeCmdFd);
+            try {
+                releaseUvcCamera(nativeCmdFd);
+            } catch (Throwable t) {
+                Log.w(TAG, "Error al cerrar nativeCmdFd: " + t.getMessage());
+            }
             nativeCmdFd = 0;
         }
     }
@@ -94,4 +114,3 @@ public class UvcCamera {
         return nativeCmdFd;
     }
 }
-
