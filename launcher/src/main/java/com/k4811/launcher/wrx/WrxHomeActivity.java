@@ -863,17 +863,17 @@ public class WrxHomeActivity extends Activity implements CarState.Listener {
     private void showCarMenu() {
         boolean sport = WrxPrefs.isSportMode(this);
         String[] opts = {
+            "📋 REGISTRO WRX (Bencina, Mantención, Odómetro)",
+            "🎛️ Centro de Audio & Ecualización",
             "🏁 Modo Pista WRX (0-100 / 0-60)" + (sport ? " (Activo)" : " (Apagado)"),
-            "⛽ Cargar Bencina y Rendimiento (km/L)",
-            "🔒 Proteger último video (Cámara Trasera)",
-            "📍 Datos de Viaje y Odómetro",
+            "🛡️ Proteger último video (Cámara Trasera)",
             "🖼️ Foto del auto: guardar en /sdcard/K4811/wrx_auto.png"
         };
         dialog = WrxDialog.list(this, t, "Subaru WRX", opts, i -> {
-            if (i == 0) showSportMenu();
-            else if (i == 1) showFuelDialog();
-            else if (i == 2) protectVideo();
-            else if (i == 3) showTrip();
+            if (i == 0) startActivity(new Intent(this, WrxRegistryActivity.class));
+            else if (i == 1) startActivity(new Intent(this, WrxSoundTestActivity.class));
+            else if (i == 2) showSportMenu();
+            else if (i == 3) protectVideo();
             else if (i == 4) {
                 Toast.makeText(this, "Guarda tu imagen PNG transparente en:\n/sdcard/K4811/wrx_auto.png", Toast.LENGTH_LONG).show();
             }

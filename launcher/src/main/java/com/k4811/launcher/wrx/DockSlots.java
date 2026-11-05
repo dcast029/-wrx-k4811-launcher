@@ -26,21 +26,23 @@ public final class DockSlots {
 
     public static final int MAX = 10;
     public static final String DEFAULT =
-        "home,radio,bt_music,front_cam,rear_cam,dashcam,recordings,carplay,youtube,apps";
+        "home,radio,bt_music,audio,registry,front_cam,rear_cam,recordings,carplay,apps";
 
     /** id, nombre corto, ícono. */
     public static final Object[][] BUILTIN = {
         {"home", "INICIO", Glyph.Kind.HOME},
         {"radio", "RADIO", Glyph.Kind.RADIO},
-        {"music", "MÚSICA", Glyph.Kind.MUSIC},
         {"bt_music", "MÚSICA BT", Glyph.Kind.BLUETOOTH},
-        {"phone", "TELÉFONO", Glyph.Kind.PHONE},
+        {"audio", "AUDIO", Glyph.Kind.EQ},
+        {"registry", "REGISTRO", Glyph.Kind.TRIP},
+        {"recordings", "GRABACIONES", Glyph.Kind.VIDEO},
         {"front_cam", "CÁM. FRONTAL", Glyph.Kind.CAM_FRONT},
         {"rear_cam", "CÁM. TRASERA", Glyph.Kind.CAM_REAR},
         {"dashcam", "DASHCAM", Glyph.Kind.DASHCAM},
-        {"recordings", "GRABACIONES", Glyph.Kind.VIDEO},
-        {"cam360", "CÁMARA 360", Glyph.Kind.CAM360},
         {"carplay", "CARPLAY", Glyph.Kind.CARPLAY},
+        {"music", "MÚSICA", Glyph.Kind.MUSIC},
+        {"phone", "TELÉFONO", Glyph.Kind.PHONE},
+        {"cam360", "CÁMARA 360", Glyph.Kind.CAM360},
         {"youtube", "YOUTUBE", Glyph.Kind.YOUTUBE},
         {"maps", "MAPAS", Glyph.Kind.MAPS},
         {"video", "VIDEO", Glyph.Kind.VIDEO},
@@ -148,8 +150,15 @@ public final class DockSlots {
             case "dashcam":
                 if (ExternalApps.openTrafficGuard(a)) return true;
                 return launchFirst(a, DASHCAM, "traffic", "guard", "fvision", "dvr", "dashcam", "grabador");
+            case "audio":
             case "sound_test":
                 a.startActivity(new Intent(a, WrxSoundTestActivity.class));
+                return true;
+            case "registry":
+                a.startActivity(new Intent(a, WrxRegistryActivity.class));
+                return true;
+            case "maintenance":
+                a.startActivity(new Intent(a, WrxRegistryActivity.class));
                 return true;
             case "youtube":
                 return launchFirst(a, YOUTUBE, "youtube");
@@ -157,9 +166,6 @@ public final class DockSlots {
                 return launchFirst(a, MAPS, "waze", "maps", "mapas");
             case "recordings":
                 return launch(a, CarWatchService.PKG_RECORDINGS);
-            case "maintenance":
-                a.startActivity(new Intent(a, MaintenanceActivity.class));
-                return true;
             default:
                 if (isApp(id)) return launch(a, id.substring(4));
                 return false;

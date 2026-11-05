@@ -65,6 +65,11 @@
             android:screenOrientation="sensorLandscape"
             android:windowSoftInputMode="adjustPan" />
         <activity
+            android:name=".wrx.WrxRegistryActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|density"
+            android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustPan" />
+        <activity
             android:name=".wrx.WrxSettingsActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|density"
             android:screenOrientation="sensorLandscape" />
